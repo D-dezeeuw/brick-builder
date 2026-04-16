@@ -23,7 +23,7 @@ export function Sidebar() {
         <kbd>L-click</kbd> place · <kbd>R-click</kbd> delete · <kbd>R</kbd> rotate
       </p>
       <p className="hint">
-        <kbd>Drag</kbd> orbit · <kbd>Wheel</kbd> zoom
+        <kbd>Drag</kbd> orbit · <kbd>Middle-drag</kbd> pan · <kbd>Wheel</kbd> zoom
       </p>
     </div>
   );

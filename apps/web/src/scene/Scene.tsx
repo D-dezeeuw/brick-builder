@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import { MOUSE, TOUCH } from 'three';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { PlacementCursor } from './PlacementCursor';
@@ -36,7 +37,11 @@ export function Scene() {
       <OrbitControls
         enableDamping
         dampingFactor={0.12}
-        enablePan={false}
+        enablePan
+        screenSpacePanning
+        panSpeed={0.9}
+        mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.PAN }}
+        touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
         minDistance={baseSize * 0.25}
         maxDistance={baseSize * 3}
         minPolarAngle={0.1}

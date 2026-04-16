@@ -36,7 +36,7 @@ export const worldToGridZ = (z: number): number => Math.round(z / STUD_PITCH_MM)
 /** Brick shape identifier — width x depth (studs) plus height class. */
 export type BrickShape = '1x1' | '1x1P';
 
-export type BrickColor = 'red' | 'yellow' | 'blue';
+export type BrickColor = 'red' | 'yellow' | 'blue' | 'teal';
 
 /** Rotation around Y in 90° increments. */
 export type Rotation = 0 | 1 | 2 | 3;

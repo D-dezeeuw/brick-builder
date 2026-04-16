@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
-import { InstancedMesh, Matrix4, MeshStandardMaterial } from 'three';
+import { InstancedMesh, Matrix4 } from 'three';
 import {
   PLATE_HEIGHT_MM,
   SHAPE_FOOTPRINT,
@@ -11,6 +11,7 @@ import {
 import { useEditorStore } from '../state/editorStore';
 import { BRICK_COLOR_HEX } from '../state/constants';
 import { getBrickGeometry } from './geometry/studdedBox';
+import { createBrickMaterial } from './material';
 
 const BUCKET_CAPACITY = 1024;
 
@@ -58,10 +59,7 @@ type BucketProps = {
 function BrickBucket({ shape, color, items }: BucketProps) {
   const ref = useRef<InstancedMesh>(null);
   const geometry = useMemo(() => getBrickGeometry(shape), [shape]);
-  const material = useMemo(
-    () => new MeshStandardMaterial({ color: BRICK_COLOR_HEX[color], roughness: 0.4 }),
-    [color],
-  );
+  const material = useMemo(() => createBrickMaterial(BRICK_COLOR_HEX[color]), [color]);
 
   useLayoutEffect(() => {
     const mesh = ref.current;

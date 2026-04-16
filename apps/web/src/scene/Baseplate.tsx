@@ -30,7 +30,7 @@ function StudField() {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow receiveShadow>
       <cylinderGeometry args={[STUD_DIAMETER_MM / 2, STUD_DIAMETER_MM / 2, STUD_HEIGHT_MM, 16]} />
-      <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.7} />
+      <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.38} metalness={0.08} />
     </instancedMesh>
   );
 }
@@ -46,7 +46,7 @@ export function Baseplate() {
         userData={{ kind: 'baseplate' }}
       >
         <boxGeometry args={[size, PLATE_HEIGHT_MM, size]} />
-        <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.8} />
+        <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.38} metalness={0.08} />
       </mesh>
       <StudField />
     </group>
