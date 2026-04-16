@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
@@ -6,6 +6,9 @@ import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { PlacementCursor } from './PlacementCursor';
 import { InstancedBricks } from '../bricks/InstancedBricks';
+
+// Lazy-load so Low/Med/High users don't download postprocessing (~400 kB gz).
+const PostFX = lazy(() => import('./PostFX').then((m) => ({ default: m.PostFX })));
 import { useEditorStore } from '../state/editorStore';
 import { QUALITY_CONFIGS } from '../state/quality';
 import { warmthToRgb } from './lightColor';
@@ -69,6 +72,12 @@ export function Scene() {
       <Baseplate />
       <InstancedBricks />
       <PlacementCursor />
+
+      {config.usePostProcessing && (
+        <Suspense fallback={null}>
+          <PostFX />
+        </Suspense>
+      )}
 
       <OrbitControls
         enableDamping
