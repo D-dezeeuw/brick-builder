@@ -41,7 +41,7 @@ export function Scene() {
         screenSpacePanning
         panSpeed={0.9}
         mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.PAN }}
-        touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
+        touches={{ TWO: TOUCH.DOLLY_ROTATE }}
         minDistance={baseSize * 0.25}
         maxDistance={baseSize * 3}
         minPolarAngle={0.1}

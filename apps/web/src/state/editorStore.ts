@@ -13,6 +13,8 @@ const nextId = () => `b${(++idCounter).toString(36)}`;
 
 type PlacementInput = Omit<Brick, 'id'>;
 
+export type EditorMode = 'build' | 'erase';
+
 type EditorState = {
   bricks: Map<string, Brick>;
   /** Every occupied cell → brickId. Multi-layer bricks register one entry per plate-layer they span. */
@@ -21,12 +23,14 @@ type EditorState = {
   selectedShape: BrickShape;
   selectedColor: BrickColor;
   rotation: Rotation;
+  mode: EditorMode;
 
   addBrick: (input: PlacementInput) => string | null;
   removeBrickById: (id: string) => boolean;
 
   setShape: (shape: BrickShape) => void;
   setColor: (color: BrickColor) => void;
+  setMode: (mode: EditorMode) => void;
   rotateCursor: () => void;
 
   /** True iff every cell in the prospective footprint is free and gy >= 0. */
@@ -46,6 +50,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedShape: '1x1',
   selectedColor: 'red',
   rotation: 0,
+  mode: 'build',
 
   canPlaceAt: (shape, gx, gy, gz, rotation) => {
     if (gy < 0) return false;
@@ -88,5 +93,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setShape: (shape) => set({ selectedShape: shape }),
   setColor: (color) => set({ selectedColor: color }),
+  setMode: (mode) => set({ mode }),
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
 }));
