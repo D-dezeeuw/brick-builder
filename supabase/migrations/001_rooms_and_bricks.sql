@@ -42,8 +42,27 @@ create table if not exists public.bricks (
 create index if not exists bricks_room_idx on public.bricks (room_id);
 
 -- Realtime: stream INSERT/UPDATE/DELETE for both tables to subscribed clients.
-alter publication supabase_realtime add table public.rooms;
-alter publication supabase_realtime add table public.bricks;
+-- Wrapped in DO blocks so re-running this migration is a no-op instead of
+-- erroring with "relation X is already member of publication".
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'rooms'
+  ) then
+    alter publication supabase_realtime add table public.rooms;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'bricks'
+  ) then
+    alter publication supabase_realtime add table public.bricks;
+  end if;
+end $$;
 
 -- Row-level security: open CRUD for anon. Rooms remain private-by-obscurity
 -- (the id is the capability). Production deployments should bolt on auth.
