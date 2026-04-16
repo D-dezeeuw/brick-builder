@@ -3,7 +3,9 @@ import type { Quality } from './editorStore';
 /**
  * Per-level rendering knobs. Everything downstream (materials, lights,
  * post-processing) reads its flags from here so we keep a single source of
- * truth for quality scaling.
+ * truth for quality scaling. Individual effect flags (AO/Bloom/SMAA) live
+ * separately in the store so users can override them without leaving the
+ * current quality preset.
  */
 export type QualityConfig = {
   /** MeshPhysicalMaterial + clearcoat vs plain MeshStandardMaterial. */
@@ -14,8 +16,6 @@ export type QualityConfig = {
   useEnvironment: boolean;
   /** Directional-light shadow-map resolution (square). */
   shadowMapSize: number;
-  /** Post-processing pipeline (SSAO + Bloom + SMAA). Phase 3c hookup. */
-  usePostProcessing: boolean;
 };
 
 export const QUALITY_CONFIGS: Record<Quality, QualityConfig> = {
@@ -24,29 +24,39 @@ export const QUALITY_CONFIGS: Record<Quality, QualityConfig> = {
     useOrenNayar: false,
     useEnvironment: false,
     shadowMapSize: 512,
-    usePostProcessing: false,
   },
   medium: {
     useClearcoat: false,
     useOrenNayar: true,
     useEnvironment: true,
     shadowMapSize: 1024,
-    usePostProcessing: false,
   },
   high: {
     useClearcoat: true,
     useOrenNayar: true,
     useEnvironment: true,
     shadowMapSize: 2048,
-    usePostProcessing: false,
   },
   ultra: {
     useClearcoat: true,
     useOrenNayar: true,
     useEnvironment: true,
     shadowMapSize: 4096,
-    usePostProcessing: true,
   },
+};
+
+/** Seed values for the independent AO/Bloom/SMAA toggles when quality changes. */
+export type EffectDefaults = {
+  ao: boolean;
+  bloom: boolean;
+  smaa: boolean;
+};
+
+export const EFFECT_DEFAULTS: Record<Quality, EffectDefaults> = {
+  low: { ao: false, bloom: false, smaa: false },
+  medium: { ao: false, bloom: false, smaa: true },
+  high: { ao: true, bloom: false, smaa: true },
+  ultra: { ao: true, bloom: true, smaa: true },
 };
 
 export const QUALITY_ORDER: readonly Quality[] = ['low', 'medium', 'high', 'ultra'];

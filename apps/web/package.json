@@ -13,11 +13,14 @@
     "@brick/shared": "workspace:*",
     "@react-three/drei": "^9.120.4",
     "@react-three/fiber": "^8.17.10",
+    "@react-three/gpu-pathtracer": "^0.3.2",
     "@react-three/postprocessing": "^2.19.1",
     "postprocessing": "^6.39.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.171.0",
+    "three-gpu-pathtracer": "^0.0.23",
+    "three-mesh-bvh": "^0.9.9",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

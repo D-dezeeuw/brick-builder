@@ -6,15 +6,17 @@ import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { PlacementCursor } from './PlacementCursor';
 import { InstancedBricks } from '../bricks/InstancedBricks';
-
-// Lazy-load so Low/Med/High users don't download postprocessing (~400 kB gz).
-const PostFX = lazy(() => import('./PostFX').then((m) => ({ default: m.PostFX })));
 import { useEditorStore } from '../state/editorStore';
 import { QUALITY_CONFIGS } from '../state/quality';
 import { warmthToRgb } from './lightColor';
 
-// Camera framing — sized for the initial 32×32 baseplate; OrbitControls zoom
-// range keeps the view usable as the baseplate grows in 16-stud chunks.
+// Heavy optional modules split out of the main bundle. Users on Low/Med with
+// no post-fx and render mode off never pay the cost.
+const PostFX = lazy(() => import('./PostFX').then((m) => ({ default: m.PostFX })));
+const Pathtracer = lazy(() =>
+  import('@react-three/gpu-pathtracer').then((m) => ({ default: m.Pathtracer })),
+);
+
 const INITIAL_BASEPLATE_STUDS = 32;
 
 export function Scene() {
@@ -22,6 +24,10 @@ export function Scene() {
   const lightIntensity = useEditorStore((s) => s.lightIntensity);
   const lightWarmth = useEditorStore((s) => s.lightWarmth);
   const envIntensity = useEditorStore((s) => s.envIntensity);
+  const aoEnabled = useEditorStore((s) => s.aoEnabled);
+  const bloomEnabled = useEditorStore((s) => s.bloomEnabled);
+  const smaaEnabled = useEditorStore((s) => s.smaaEnabled);
+  const renderMode = useEditorStore((s) => s.renderMode);
   const config = QUALITY_CONFIGS[quality];
 
   const lightColor = useMemo(() => {
@@ -31,27 +37,18 @@ export function Scene() {
 
   const baseSize = INITIAL_BASEPLATE_STUDS * STUD_PITCH_MM;
   const camDist = baseSize * 1.1;
-  // Ambient follows warmth too so the overall cast feels coherent. When the
-  // env map is actually fed (on + non-zero intensity), ambient dims down to
-  // avoid double-counting indirect light; otherwise it carries the fill itself.
   const envContribution = config.useEnvironment ? envIntensity : 0;
   const ambientBase = Math.max(0.15, 0.5 - 0.35 * envContribution);
 
-  return (
-    <Canvas
-      camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }}
-      shadows={{ type: PCFSoftShadowMap }}
-      gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
-    >
-      <color attach="background" args={['#1a1d24']} />
+  const anyPostFX = aoEnabled || bloomEnabled || smaaEnabled;
 
-      {/* Environment map for IBL on medium+. background={false} keeps our dark backdrop.
-          envIntensity is user-tunable because the stock studio HDRI is very bright. */}
+  // Scene content shared between rasterized and path-traced paths. Pathtracer
+  // wraps it to path-trace everything inside (lights, env map, bricks, plate).
+  const sceneContent = (
+    <>
       {config.useEnvironment && envIntensity > 0 && (
         <Environment preset="studio" background={false} environmentIntensity={envIntensity} />
       )}
-
-      {/* Ambient is reduced when the env map is carrying indirect light. */}
       <ambientLight intensity={ambientBase * lightIntensity} color={lightColor} />
       <directionalLight
         position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
@@ -68,15 +65,35 @@ export function Scene() {
         shadow-camera-far={baseSize * 4}
         shadow-bias={-0.0005}
       />
-
       <Baseplate />
       <InstancedBricks />
-      <PlacementCursor />
+    </>
+  );
 
-      {config.usePostProcessing && (
+  return (
+    <Canvas
+      camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }}
+      shadows={{ type: PCFSoftShadowMap }}
+      gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+    >
+      <color attach="background" args={['#1a1d24']} />
+
+      {renderMode ? (
         <Suspense fallback={null}>
-          <PostFX />
+          <Pathtracer minSamples={2} samples={1} bounces={3} enabled>
+            {sceneContent}
+          </Pathtracer>
         </Suspense>
+      ) : (
+        <>
+          {sceneContent}
+          <PlacementCursor />
+          {anyPostFX && (
+            <Suspense fallback={null}>
+              <PostFX ao={aoEnabled} bloom={bloomEnabled} smaa={smaaEnabled} />
+            </Suspense>
+          )}
+        </>
       )}
 
       <OrbitControls

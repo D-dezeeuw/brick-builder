@@ -7,6 +7,7 @@ import {
   type BrickShape,
   type Rotation,
 } from '@brick/shared';
+import { EFFECT_DEFAULTS } from './quality';
 
 let idCounter = 0;
 const nextId = () => `b${(++idCounter).toString(36)}`;
@@ -53,6 +54,14 @@ type EditorState = {
   lightWarmth: number;
   /** IBL environment-map intensity (0..2). 0 disables reflections from the HDRI. */
   envIntensity: number;
+
+  // --- Post-processing effect toggles (independent of quality preset) ---
+  aoEnabled: boolean;
+  bloomEnabled: boolean;
+  smaaEnabled: boolean;
+
+  /** When true, scene renders via GPU path tracer (non-interactive preview). */
+  renderMode: boolean;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
@@ -72,6 +81,10 @@ type EditorState = {
   setLightIntensity: (n: number) => void;
   setLightWarmth: (n: number) => void;
   setEnvIntensity: (n: number) => void;
+  setAoEnabled: (b: boolean) => void;
+  setBloomEnabled: (b: boolean) => void;
+  setSmaaEnabled: (b: boolean) => void;
+  setRenderMode: (b: boolean) => void;
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
@@ -102,6 +115,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // Studio HDRI from pmndrs/assets is quite bright; 0.3 gives a plausible
   // plastic highlight without washing out direct shading.
   envIntensity: 0.3,
+  // Effect defaults seeded from the High preset to match initial `quality: 'high'`.
+  aoEnabled: EFFECT_DEFAULTS.high.ao,
+  bloomEnabled: EFFECT_DEFAULTS.high.bloom,
+  smaaEnabled: EFFECT_DEFAULTS.high.smaa,
+  renderMode: false,
   layerOffset: 0,
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
@@ -173,10 +191,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
   setColor: (color) => set({ selectedColor: color }),
   setMode: (mode) => set({ mode }),
-  setQuality: (quality) => set({ quality }),
+  setQuality: (quality) => {
+    // Quality switch re-seeds the effect toggles from the preset so Low really
+    // feels Low and Ultra really feels Ultra; explicit per-effect overrides
+    // survive only within the same quality level.
+    const defaults = EFFECT_DEFAULTS[quality];
+    set({
+      quality,
+      aoEnabled: defaults.ao,
+      bloomEnabled: defaults.bloom,
+      smaaEnabled: defaults.smaa,
+    });
+  },
   setLightIntensity: (n) => set({ lightIntensity: Math.max(0, Math.min(2, n)) }),
   setLightWarmth: (n) => set({ lightWarmth: Math.max(-1, Math.min(1, n)) }),
   setEnvIntensity: (n) => set({ envIntensity: Math.max(0, Math.min(2, n)) }),
+  setAoEnabled: (b) => set({ aoEnabled: b }),
+  setBloomEnabled: (b) => set({ bloomEnabled: b }),
+  setSmaaEnabled: (b) => set({ smaaEnabled: b }),
+  setRenderMode: (b) => set({ renderMode: b }),
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),

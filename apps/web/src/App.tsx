@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
+import { RenderOverlay } from './ui/RenderOverlay';
 import { useKeybindings } from './state/useKeybindings';
 import { warmGeometryCache } from './bricks/geometry/builders';
 
@@ -36,6 +37,7 @@ export function App() {
       </header>
       <main className="canvas-host">
         <Scene />
+        <RenderOverlay />
       </main>
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
