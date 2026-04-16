@@ -56,6 +56,14 @@ export { BRICK_COLOR_HEX, BRICK_COLOR_ORDER, type BrickColor } from './colors';
 
 export { CURRENT_SCHEMA_VERSION, validateCreation, type Creation } from './schema';
 
+export {
+  SHARE_HASH_PARAM,
+  encodeCreation,
+  decodeCreation,
+  readCreationFromHash,
+  buildShareUrl,
+} from './urlCodec';
+
 import { SHAPE_CATALOG, type BrickShape } from './catalog';
 import { footprintOf } from './shapeDef';
 

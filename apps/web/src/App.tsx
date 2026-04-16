@@ -3,6 +3,7 @@ import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
 import { RenderOverlay } from './ui/RenderOverlay';
+import { Toasts } from './ui/Toasts';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
 import { warmGeometryCache } from './bricks/geometry/builders';
@@ -41,6 +42,7 @@ export function App() {
         <Scene />
         <RenderOverlay />
       </main>
+      <Toasts />
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
       </aside>

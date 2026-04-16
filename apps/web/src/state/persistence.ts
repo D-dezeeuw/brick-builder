@@ -1,28 +1,47 @@
 import { useEffect } from 'react';
-import { validateCreation } from '@brick/shared';
+import { readCreationFromHash, validateCreation } from '@brick/shared';
 import { useEditorStore } from './editorStore';
 import { loadCreationWithHistoryReset } from './commandStack';
 
 const STORAGE_KEY = 'brick-builder:creation';
 const AUTOSAVE_DEBOUNCE_MS = 500;
 
-function hydrate(): boolean {
+type HydrationSource = 'url' | 'local' | 'empty';
+
+function hydrate(): HydrationSource {
+  // 1) URL hash wins. Shared links should never be shadowed by a local save.
+  try {
+    const shared = readCreationFromHash();
+    if (shared) {
+      loadCreationWithHistoryReset(shared);
+      // Clear the hash so a plain refresh won't keep forcing the shared state
+      // (the creation is now in-memory and will be autosaved to localStorage).
+      if (typeof history !== 'undefined' && history.replaceState) {
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+      return 'url';
+    }
+  } catch (err) {
+    console.warn('[persistence] URL hydrate failed:', err);
+  }
+
+  // 2) Fall back to the last autosave.
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
+    if (!raw) return 'empty';
     const parsed = JSON.parse(raw) as unknown;
     const creation = validateCreation(parsed);
     if (!creation) {
       // Stored payload exists but is stale/corrupt — purge so the next save
       // doesn't look like a successful hydration to observers.
       localStorage.removeItem(STORAGE_KEY);
-      return false;
+      return 'empty';
     }
     loadCreationWithHistoryReset(creation);
-    return true;
+    return 'local';
   } catch (err) {
-    console.warn('[persistence] hydrate failed:', err);
-    return false;
+    console.warn('[persistence] localStorage hydrate failed:', err);
+    return 'empty';
   }
 }
 

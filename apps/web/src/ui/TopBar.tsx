@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useEditorStore } from '../state/editorStore';
 import { computeStats } from '../state/stats';
+import { ShareButton } from './ShareButton';
 
 type Props = {
   sidebarOpen: boolean;
@@ -71,6 +72,7 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
           />
         )}
         {stats.uniqueColors > 1 && <StatChip label="colors" value={stats.uniqueColors} />}
+        <ShareButton />
         <button
           type="button"
           className="icon-btn"
