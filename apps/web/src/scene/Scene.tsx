@@ -4,6 +4,7 @@ import { Environment, OrbitControls } from '@react-three/drei';
 import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
+import { CaptureBridge } from './CaptureBridge';
 import { PlacementCursor } from './PlacementCursor';
 import { InstancedBricks } from '../bricks/InstancedBricks';
 import { useEditorStore } from '../state/editorStore';
@@ -90,10 +91,11 @@ export function Scene() {
         // chain (SMAA) handle anti-aliasing.
         stencil: false,
         antialias: false,
-        // Required so Export → PNG can read the drawing buffer from a button
-        // click (the compositor clears it after each frame otherwise). Small
-        // perf cost; the export UX outweighs it.
-        preserveDrawingBuffer: true,
+        // preserveDrawingBuffer was tempting for PNG export but when combined
+        // with N8AO's normal-pass blit it resurfaced the same GL error above.
+        // PNG export instead uses an offscreen render-to-target + readPixels
+        // (see state/captureBus.ts + scene/CaptureBridge.tsx), which works
+        // regardless of drawing-buffer preservation.
       }}
     >
       <color attach="background" args={['#1a1d24']} />
@@ -120,6 +122,8 @@ export function Scene() {
           )}
         </>
       )}
+
+      <CaptureBridge />
 
       <OrbitControls
         enableDamping

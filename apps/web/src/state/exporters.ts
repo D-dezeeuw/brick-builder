@@ -1,5 +1,6 @@
 import { validateCreation, type Creation } from '@brick/shared';
 import { loadCreationWithHistoryReset } from './commandStack';
+import { requestPngCapture } from './captureBus';
 import { useToastStore } from './toastStore';
 
 /** Slug a title for use as a filename. Falls back to "creation". */
@@ -32,12 +33,6 @@ export function exportCreationAsJson(creation: Creation): void {
 }
 
 /**
- * Capture the current WebGL canvas as PNG. Depends on the renderer being
- * created with `preserveDrawingBuffer: true` (see Scene.tsx). Works both in
- * normal render and path-traced render mode — the pathtracer writes to the
- * same canvas.
- */
-/**
  * Read a dropped/selected file as a Creation and load it. Emits user-visible
  * toasts for the outcome. Resilient to malformed JSON and schema mismatch —
  * the current scene is preserved until load succeeds.
@@ -62,20 +57,19 @@ export async function importCreationFromFile(file: File): Promise<boolean> {
   }
 }
 
+/**
+ * Capture the current scene as PNG via an offscreen WebGLRenderTarget (see
+ * scene/CaptureBridge.tsx). Works without `preserveDrawingBuffer: true` —
+ * which otherwise conflicts with N8AO's normal-pass blit.
+ *
+ * Render-mode note: the path tracer writes to the main canvas only, so
+ * exporting while render mode is on captures a fresh rasterized render of
+ * the current camera, not the accumulated path-traced image. Exit render
+ * mode first if a rasterized screenshot is not what you want.
+ */
 export async function exportCanvasAsPng(titleForFilename: string): Promise<boolean> {
-  const canvas = document.querySelector('.canvas-host canvas') as HTMLCanvasElement | null;
-  if (!canvas) return false;
-  return new Promise<boolean>((resolve) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          resolve(false);
-          return;
-        }
-        triggerDownload(blob, `${slugify(titleForFilename)}.png`);
-        resolve(true);
-      },
-      'image/png',
-    );
-  });
+  const blob = await requestPngCapture();
+  if (!blob) return false;
+  triggerDownload(blob, `${slugify(titleForFilename)}.png`);
+  return true;
 }
