@@ -47,7 +47,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   bricks: new Map(),
   cellIndex: new Map(),
 
-  selectedShape: '1x1',
+  selectedShape: 'brick_2x4',
   selectedColor: 'red',
   rotation: 0,
   mode: 'build',

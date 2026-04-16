@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Vector2 } from 'three';
-import { PLATE_HEIGHT_MM, SHAPE_FOOTPRINT, STUD_PITCH_MM, type Brick } from '@brick/shared';
+import {
+  PLATE_HEIGHT_MM,
+  SHAPE_CATALOG,
+  STUD_PITCH_MM,
+  footprintOf,
+  type Brick,
+} from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { BASEPLATE_STUDS, BRICK_COLOR_HEX } from '../state/constants';
-import { getBrickGeometry } from '../bricks/geometry/studdedBox';
+import { getGeometry } from '../bricks/geometry/builders';
 
 type HoverTarget = {
   gx: number;
@@ -71,7 +77,7 @@ export function PlacementCursor() {
           const items = h.object.userData.items as Brick[] | undefined;
           const brick = items?.[h.instanceId];
           if (!brick) continue;
-          const layers = SHAPE_FOOTPRINT[brick.shape].layers;
+          const layers = footprintOf(SHAPE_CATALOG[brick.shape]).layers;
           const gx = Math.floor(h.point.x / STUD_PITCH_MM);
           const gz = Math.floor(h.point.z / STUD_PITCH_MM);
           if (gx < -halfN || gx >= halfN || gz < -halfN || gz >= halfN) return null;
@@ -202,7 +208,7 @@ export function PlacementCursor() {
     };
   }, [gl, camera, raycaster, scene]);
 
-  const geometry = useMemo(() => getBrickGeometry(selectedShape), [selectedShape]);
+  const geometry = useMemo(() => getGeometry(selectedShape), [selectedShape]);
   if (!hover) return null;
 
   // In erase mode, the ghost is a semi-transparent red outline of the brick
@@ -212,10 +218,10 @@ export function PlacementCursor() {
     const state = useEditorStore.getState();
     const target = state.bricks.get(hover.underBrickId);
     if (!target) return null;
-    const fp = SHAPE_FOOTPRINT[target.shape];
+    const fp = footprintOf(SHAPE_CATALOG[target.shape]);
     const cx = (fp.w * STUD_PITCH_MM) / 2;
     const cz = (fp.d * STUD_PITCH_MM) / 2;
-    const targetGeom = getBrickGeometry(target.shape);
+    const targetGeom = getGeometry(target.shape);
     return (
       <group
         position={[
@@ -240,7 +246,7 @@ export function PlacementCursor() {
 
   // Build mode — preview brick at target cell.
   const occupied = !canPlaceAt(selectedShape, hover.gx, hover.gy, hover.gz, rotation);
-  const footprint = SHAPE_FOOTPRINT[selectedShape];
+  const footprint = footprintOf(SHAPE_CATALOG[selectedShape]);
   const cx = (footprint.w * STUD_PITCH_MM) / 2;
   const cz = (footprint.d * STUD_PITCH_MM) / 2;
   const wx = hover.gx * STUD_PITCH_MM;

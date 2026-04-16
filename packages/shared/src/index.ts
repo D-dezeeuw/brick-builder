@@ -14,7 +14,7 @@ export const STUD_DIAMETER_MM = 4.8;
 export const STUD_HEIGHT_MM = 1.7;
 export const BRICK_GAP_MM = 0.2;
 
-// Legacy LU exports (kept for geometry tooling that prefers integer units)
+// Legacy LU exports
 export const LU_MM = 0.8;
 export const STUD_PITCH_LU = 10;
 export const BRICK_HEIGHT_LU = 12;
@@ -31,12 +31,31 @@ export const gridToWorldY = (gy: number): number => gy * PLATE_HEIGHT_MM;
 export const worldToGridX = (x: number): number => Math.round(x / STUD_PITCH_MM);
 export const worldToGridZ = (z: number): number => Math.round(z / STUD_PITCH_MM);
 
-// ---------- Brick types ----------
+// ---------- Public brick model ----------
 
-/** Brick shape identifier — width x depth (studs) plus height class. */
-export type BrickShape = '1x1' | '1x1P';
+export type {
+  RectDef,
+  RoundDef,
+  SlopeDef,
+  CurveDef,
+  ShapeDef,
+  Footprint,
+} from './shapeDef';
+export { footprintOf } from './shapeDef';
 
-export type BrickColor = 'red' | 'yellow' | 'blue' | 'teal' | 'black';
+export {
+  SHAPE_IDS,
+  SHAPE_CATALOG,
+  SHAPE_CATEGORY,
+  SHAPE_LABEL,
+  type BrickShape,
+  type ShapeCategory,
+} from './catalog';
+
+export { BRICK_COLOR_HEX, BRICK_COLOR_ORDER, type BrickColor } from './colors';
+
+import { SHAPE_CATALOG, type BrickShape } from './catalog';
+import { footprintOf } from './shapeDef';
 
 /** Rotation around Y in 90° increments. */
 export type Rotation = 0 | 1 | 2 | 3;
@@ -44,28 +63,13 @@ export type Rotation = 0 | 1 | 2 | 3;
 export type Brick = {
   id: string;
   shape: BrickShape;
-  color: BrickColor;
+  color: import('./colors').BrickColor;
   /** Bottom-front-left corner of the brick in grid coords. */
   gx: number;
   gz: number;
   /** Layer index in plate heights (0 = sitting on baseplate top). */
   gy: number;
   rotation: Rotation;
-};
-
-/** Footprint dimensions for a shape (in studs). Expands in Phase 2. */
-export type ShapeFootprint = {
-  /** Width along X (studs). */
-  w: number;
-  /** Depth along Z (studs). */
-  d: number;
-  /** Height in plate-layers (brick = 3, plate = 1). */
-  layers: number;
-};
-
-export const SHAPE_FOOTPRINT: Record<BrickShape, ShapeFootprint> = {
-  '1x1': { w: 1, d: 1, layers: 3 },
-  '1x1P': { w: 1, d: 1, layers: 1 },
 };
 
 /** Cell key for collision lookups. */
@@ -82,7 +86,8 @@ export function footprintCells(
   gz: number,
   rotation: Rotation,
 ): Array<{ gx: number; gy: number; gz: number }> {
-  const { w, d, layers } = SHAPE_FOOTPRINT[shape];
+  const def = SHAPE_CATALOG[shape];
+  const { w, d, layers } = footprintOf(def);
   const swap = rotation % 2 === 1;
   const effW = swap ? d : w;
   const effD = swap ? w : d;

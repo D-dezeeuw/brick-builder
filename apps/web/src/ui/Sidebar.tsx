@@ -1,6 +1,7 @@
 import type { BrickColor } from '@brick/shared';
 import { useEditorStore, type EditorMode } from '../state/editorStore';
 import { BRICK_COLOR_HEX, BRICK_COLOR_ORDER } from '../state/constants';
+import { BrickBrowser } from './BrickBrowser';
 
 export function Sidebar() {
   const selected = useEditorStore((s) => s.selectedColor);
@@ -10,33 +11,41 @@ export function Sidebar() {
 
   return (
     <div className="sidebar-content">
-      <h2 className="sidebar-heading">Mode</h2>
-      <div className="mode-row" role="tablist" aria-label="Editor mode">
-        <ModeButton label="Build" value="build" active={mode === 'build'} onSelect={setMode} />
-        <ModeButton label="Erase" value="erase" active={mode === 'erase'} onSelect={setMode} />
+      <div className="sidebar-section">
+        <h2 className="sidebar-heading">Mode</h2>
+        <div className="mode-row" role="tablist" aria-label="Editor mode">
+          <ModeButton label="Build" value="build" active={mode === 'build'} onSelect={setMode} />
+          <ModeButton label="Erase" value="erase" active={mode === 'erase'} onSelect={setMode} />
+        </div>
       </div>
 
-      <h2 className="sidebar-heading">Color</h2>
-      <div className="color-row">
-        {BRICK_COLOR_ORDER.map((color) => (
-          <ColorSwatch
-            key={color}
-            color={color}
-            active={selected === color}
-            onSelect={() => setColor(color)}
-          />
-        ))}
+      <div className="sidebar-section">
+        <h2 className="sidebar-heading">Color</h2>
+        <div className="color-row">
+          {BRICK_COLOR_ORDER.map((color) => (
+            <ColorSwatch
+              key={color}
+              color={color}
+              active={selected === color}
+              onSelect={() => setColor(color)}
+            />
+          ))}
+        </div>
       </div>
 
-      <p className="hint">
-        <kbd>Tap</kbd> place · <kbd>R-click</kbd> / Erase mode remove · <kbd>R</kbd> rotate
-      </p>
-      <p className="hint">
-        <kbd>Drag</kbd> orbit · <kbd>Middle-drag</kbd> pan · <kbd>Wheel</kbd> zoom
-      </p>
-      <p className="hint">
-        <kbd>2-finger</kbd> orbit/zoom on touch
-      </p>
+      <div className="sidebar-section">
+        <h2 className="sidebar-heading">Pieces</h2>
+        <BrickBrowser />
+      </div>
+
+      <div className="sidebar-section sidebar-section--hints">
+        <p className="hint">
+          <kbd>Tap</kbd> place · <kbd>R-click</kbd> delete · <kbd>R</kbd> rotate
+        </p>
+        <p className="hint">
+          <kbd>Drag</kbd> orbit · <kbd>Middle-drag</kbd> pan · <kbd>Wheel</kbd> zoom
+        </p>
+      </div>
     </div>
   );
 }
