@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
+import { HelpModal } from './ui/HelpModal';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { Toasts } from './ui/Toasts';
+import { useFirstRunHelp, useHelpStore } from './state/helpStore';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
 import { useRoomRouter } from './multiplayer/useRoomRouter';
@@ -18,6 +20,10 @@ export function App() {
   usePersistence();
   useRoomRouter();
   useRoomWrites();
+  useFirstRunHelp();
+
+  const helpOpen = useHelpStore((s) => s.open);
+  const setHelpOpen = useHelpStore((s) => s.setOpen);
 
   useEffect(() => {
     warmGeometryCache();
@@ -49,6 +55,7 @@ export function App() {
         <ImportDropZone />
       </main>
       <Toasts />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
       </aside>

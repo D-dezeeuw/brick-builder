@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useEditorStore } from './editorStore';
 import { commandStack } from './commandStack';
+import { useHelpStore } from './helpStore';
 
 /** Global keyboard shortcuts. Ignores events from form fields. */
 export function useKeybindings() {
@@ -22,6 +23,13 @@ export function useKeybindings() {
       }
       if (mod && (e.key === 'y' || e.key === 'Y')) {
         commandStack.redo();
+        e.preventDefault();
+        return;
+      }
+
+      // Shift+? (the '?' key on most layouts) toggles the help modal.
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        useHelpStore.getState().toggle();
         e.preventDefault();
         return;
       }

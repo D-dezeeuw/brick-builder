@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useEditorStore } from '../state/editorStore';
+import { useHelpStore } from '../state/helpStore';
 import { computeStats } from '../state/stats';
 import { ExportMenu } from './ExportMenu';
 import { RoomControl } from './RoomControl';
@@ -15,6 +16,7 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
   const title = useEditorStore((s) => s.title);
   const setTitle = useEditorStore((s) => s.setTitle);
   const layerOffset = useEditorStore((s) => s.layerOffset);
+  const openHelp = useHelpStore((s) => s.setOpen);
 
   const stats = useMemo(() => computeStats(bricks.values()), [bricks]);
 
@@ -77,6 +79,15 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
         <RoomControl />
         <ExportMenu />
         <ShareButton />
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Keyboard shortcuts and help"
+          title="Keyboard shortcuts (?)"
+          onClick={() => openHelp(true)}
+        >
+          ?
+        </button>
         <button
           type="button"
           className="icon-btn"
