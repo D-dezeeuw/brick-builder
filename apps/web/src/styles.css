@@ -162,13 +162,19 @@ body,
   color: var(--fg-muted);
 }
 
-.mode-row {
+.mode-row,
+.quality-row {
   display: flex;
   gap: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 2px;
+}
+
+.quality-row .mode-btn {
+  font-size: 11px;
+  padding: 6px 4px;
 }
 
 .mode-btn {

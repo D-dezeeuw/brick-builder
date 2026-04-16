@@ -21,6 +21,7 @@ const absorbId = (id: string): void => {
 type PlacementInput = Omit<Brick, 'id'>;
 
 export type EditorMode = 'build' | 'erase';
+export type Quality = 'low' | 'medium' | 'high' | 'ultra';
 
 const HOTBAR_SIZE = 9;
 
@@ -45,6 +46,7 @@ type EditorState = {
   selectedColor: BrickColor;
   rotation: Rotation;
   mode: EditorMode;
+  quality: Quality;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
@@ -60,6 +62,7 @@ type EditorState = {
   setShape: (shape: BrickShape) => void;
   setColor: (color: BrickColor) => void;
   setMode: (mode: EditorMode) => void;
+  setQuality: (q: Quality) => void;
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
@@ -84,6 +87,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedColor: 'red',
   rotation: 0,
   mode: 'build',
+  quality: 'high',
   layerOffset: 0,
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
@@ -155,6 +159,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
   setColor: (color) => set({ selectedColor: color }),
   setMode: (mode) => set({ mode }),
+  setQuality: (quality) => set({ quality }),
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),

@@ -1,36 +1,50 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import { MOUSE, TOUCH } from 'three';
+import { Environment, OrbitControls } from '@react-three/drei';
+import { ACESFilmicToneMapping, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { PlacementCursor } from './PlacementCursor';
 import { InstancedBricks } from '../bricks/InstancedBricks';
+import { useEditorStore } from '../state/editorStore';
+import { QUALITY_CONFIGS } from '../state/quality';
 
 // Camera framing — sized for the initial 32×32 baseplate; OrbitControls zoom
 // range keeps the view usable as the baseplate grows in 16-stud chunks.
 const INITIAL_BASEPLATE_STUDS = 32;
 
 export function Scene() {
+  const quality = useEditorStore((s) => s.quality);
+  const config = QUALITY_CONFIGS[quality];
+
   const baseSize = INITIAL_BASEPLATE_STUDS * STUD_PITCH_MM;
   const camDist = baseSize * 1.1;
 
   return (
-    <Canvas camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }} shadows>
+    <Canvas
+      camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }}
+      shadows={{ type: PCFSoftShadowMap }}
+      gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+    >
       <color attach="background" args={['#1a1d24']} />
 
-      <ambientLight intensity={0.5} />
+      {/* Environment map for IBL on medium+. background={false} keeps our dark backdrop. */}
+      {config.useEnvironment && <Environment preset="studio" background={false} environmentIntensity={0.8} />}
+
+      {/* Ambient is reduced when the env map is carrying indirect light. */}
+      <ambientLight intensity={config.useEnvironment ? 0.15 : 0.5} />
       <directionalLight
         position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
-        intensity={1.1}
+        intensity={config.useEnvironment ? 0.9 : 1.1}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={config.shadowMapSize}
+        shadow-mapSize-height={config.shadowMapSize}
         shadow-camera-left={-baseSize}
         shadow-camera-right={baseSize}
         shadow-camera-top={baseSize}
         shadow-camera-bottom={-baseSize}
         shadow-camera-near={1}
         shadow-camera-far={baseSize * 4}
+        shadow-bias={-0.0005}
       />
 
       <Baseplate />

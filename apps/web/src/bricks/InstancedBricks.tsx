@@ -12,6 +12,7 @@ import {
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { BRICK_COLOR_HEX } from '../state/constants';
+import { QUALITY_CONFIGS } from '../state/quality';
 import { getGeometry } from './geometry/builders';
 import { createBrickMaterial } from './material';
 
@@ -65,8 +66,12 @@ type BucketProps = {
 
 function BrickBucket({ shape, color, items }: BucketProps) {
   const ref = useRef<InstancedMesh>(null);
+  const quality = useEditorStore((s) => s.quality);
   const geometry = useMemo(() => getGeometry(shape), [shape]);
-  const material = useMemo(() => createBrickMaterial(BRICK_COLOR_HEX[color]), [color]);
+  const material = useMemo(
+    () => createBrickMaterial(BRICK_COLOR_HEX[color], QUALITY_CONFIGS[quality]),
+    [color, quality],
+  );
   const capacity = capacityFor(items.length);
 
   useLayoutEffect(() => {
