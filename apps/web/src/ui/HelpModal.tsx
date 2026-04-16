@@ -40,6 +40,13 @@ const SECTIONS: Array<{
     ],
   },
   {
+    heading: 'Graphics',
+    rows: [
+      ['⚙', 'Open Quality / Lighting / Effects'],
+      ['Ultra', 'Enables GPU path-traced render mode'],
+    ],
+  },
+  {
     heading: 'This help panel',
     rows: [
       ['?', 'Open this at any time'],

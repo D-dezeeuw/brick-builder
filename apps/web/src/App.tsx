@@ -8,8 +8,10 @@ import { Hotbar } from './ui/Hotbar';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
+import { SettingsModal } from './ui/SettingsModal';
 import { Toasts } from './ui/Toasts';
 import { useFirstRunHelp, useHelpStore } from './state/helpStore';
+import { useSettingsStore } from './state/settingsStore';
 import { hasWebGL2 } from './state/webgl';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
@@ -28,6 +30,8 @@ export function App() {
 
   const helpOpen = useHelpStore((s) => s.open);
   const setHelpOpen = useHelpStore((s) => s.setOpen);
+  const settingsOpen = useSettingsStore((s) => s.open);
+  const setSettingsOpen = useSettingsStore((s) => s.setOpen);
 
   useEffect(() => {
     warmGeometryCache();
@@ -67,6 +71,7 @@ export function App() {
       </main>
       <Toasts />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
       </aside>

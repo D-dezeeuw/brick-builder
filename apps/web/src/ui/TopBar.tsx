@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useEditorStore } from '../state/editorStore';
 import { useHelpStore } from '../state/helpStore';
+import { useSettingsStore } from '../state/settingsStore';
 import { computeStats } from '../state/stats';
 import { ExportMenu } from './ExportMenu';
 import { RoomControl } from './RoomControl';
@@ -17,13 +18,11 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
   const setTitle = useEditorStore((s) => s.setTitle);
   const layerOffset = useEditorStore((s) => s.layerOffset);
   const openHelp = useHelpStore((s) => s.setOpen);
+  const openSettings = useSettingsStore((s) => s.setOpen);
 
   const stats = useMemo(() => computeStats(bricks.values()), [bricks]);
 
-  // Uncontrolled contentEditable: we render the title once and never let
-  // React rewrite it while the user is typing (React's DOM diff would move
-  // the caret). A one-way sync updates the DOM when the title changes from
-  // the outside (e.g. a shared URL loads a creation).
+  // Uncontrolled contentEditable — see comment in commitTitle.
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const el = titleRef.current;
@@ -58,7 +57,6 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
           }
         }}
       >
-        {/* Initial content only. Subsequent renders leave the DOM untouched. */}
         {title}
       </h1>
       <div className="top-bar-right">
@@ -79,6 +77,15 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
         <RoomControl />
         <ExportMenu />
         <ShareButton />
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Graphics settings"
+          title="Graphics settings"
+          onClick={() => openSettings(true)}
+        >
+          <CogIcon />
+        </button>
         <button
           type="button"
           className="icon-btn"
@@ -132,6 +139,20 @@ function PaletteIcon() {
       <circle cx="10.5" cy="7.5" r="1.25" fill="currentColor" />
       <circle cx="14.5" cy="7.5" r="1.25" fill="currentColor" />
       <circle cx="17" cy="11" r="1.25" fill="currentColor" />
+    </svg>
+  );
+}
+
+function CogIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none">
+      <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M19.4 13.5a7.5 7.5 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.4 3a7.6 7.6 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 3h4l.4-3a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

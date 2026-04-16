@@ -380,6 +380,54 @@ body,
   white-space: nowrap;
 }
 
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 17, 21, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 55;
+  animation: toast-in 0.14s ease;
+}
+
+.settings-panel {
+  width: min(520px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 18px 20px 22px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
+}
+
+.settings-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-panel__header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .fallback {
   display: flex;
   flex-direction: column;
@@ -550,7 +598,7 @@ body,
 
 .toasts {
   position: fixed;
-  bottom: 18px;
+  bottom: 96px; /* above the hotbar at bottom:16px + ~60px hotbar height */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1056,6 +1104,28 @@ body,
   }
 
   .stats {
+    display: none;
+  }
+
+  /* Pack the action row tighter — lots of buttons + short viewport. */
+  .top-bar {
+    padding: 0 8px 0 12px;
+    gap: 6px;
+  }
+
+  .top-bar-right {
+    gap: 4px;
+  }
+
+  .icon-btn--text {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  /* Sidebar covers the right half of the canvas — moving the hotbar out of
+     the way keeps it from sitting under the drawer while the user is in the
+     building panel. */
+  .app-shell--sidebar-open .hotbar {
     display: none;
   }
 }
