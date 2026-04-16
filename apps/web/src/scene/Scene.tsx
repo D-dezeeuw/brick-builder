@@ -96,10 +96,10 @@ export function Scene() {
 
       {renderMode ? (
         <Suspense fallback={null}>
-          {/* Omit `samples` so it defaults to Infinity — otherwise the tracer
-              stops after hitting that cap and never refines.
-              `minSamples` is the lower bound before the first frame displays. */}
-          <Pathtracer minSamples={4} bounces={3} enabled>
+          {/* `samples` is the max accumulated — once reached, the tracer
+              stops and the GPU goes idle. 64 is the sweet spot for this
+              scale of geometry: near-clean image, no runaway battery drain. */}
+          <Pathtracer minSamples={4} samples={64} bounces={3} enabled>
             {sceneContent}
             <PathtracingExpansion />
             <PathtracerSampleReporter />

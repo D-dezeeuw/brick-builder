@@ -283,6 +283,11 @@ body,
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+.render-overlay__dot--done {
+  background: #4caf80;
+  animation: none;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
