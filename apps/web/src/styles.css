@@ -464,6 +464,90 @@ body,
   border-color: #ffd84a;
 }
 
+.hotbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(24, 27, 34, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+  z-index: 4;
+  max-width: calc(100% - 32px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hotbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hotbar__slot {
+  position: relative;
+  min-width: 56px;
+  padding: 8px 10px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: background 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.hotbar__slot:hover {
+  color: var(--fg);
+  background: var(--bg-panel-2);
+}
+
+.hotbar__slot--active {
+  color: var(--fg);
+  background: var(--bg-panel-2);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.hotbar__slot-key {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.hotbar__slot-label {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .hotbar {
+    bottom: 10px;
+    padding: 4px;
+  }
+  .hotbar__slot {
+    min-width: 48px;
+    padding: 6px 8px 8px;
+  }
+  .hotbar__slot-label {
+    font-size: 11px;
+  }
+}
+
 .toasts {
   position: fixed;
   bottom: 18px;

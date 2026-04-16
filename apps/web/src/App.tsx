@@ -4,6 +4,7 @@ import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
 import { BrowserUnsupported } from './ui/BrowserUnsupported';
 import { HelpModal } from './ui/HelpModal';
+import { Hotbar } from './ui/Hotbar';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
@@ -61,6 +62,7 @@ export function App() {
           <BrowserUnsupported />
         )}
         <RenderOverlay />
+        <Hotbar />
         <ImportDropZone />
       </main>
       <Toasts />
