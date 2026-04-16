@@ -1,4 +1,6 @@
-import type { Creation } from '@brick/shared';
+import { validateCreation, type Creation } from '@brick/shared';
+import { loadCreationWithHistoryReset } from './commandStack';
+import { useToastStore } from './toastStore';
 
 /** Slug a title for use as a filename. Falls back to "creation". */
 export function slugify(title: string): string {
@@ -35,6 +37,31 @@ export function exportCreationAsJson(creation: Creation): void {
  * normal render and path-traced render mode — the pathtracer writes to the
  * same canvas.
  */
+/**
+ * Read a dropped/selected file as a Creation and load it. Emits user-visible
+ * toasts for the outcome. Resilient to malformed JSON and schema mismatch —
+ * the current scene is preserved until load succeeds.
+ */
+export async function importCreationFromFile(file: File): Promise<boolean> {
+  const { show } = useToastStore.getState();
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text) as unknown;
+    const creation = validateCreation(parsed);
+    if (!creation) {
+      show('Invalid creation file — not loaded', 'error');
+      return false;
+    }
+    loadCreationWithHistoryReset(creation);
+    show(`Imported "${creation.title}"`, 'success');
+    return true;
+  } catch (err) {
+    console.warn('[import] failed:', err);
+    show('Could not read file', 'error');
+    return false;
+  }
+}
+
 export async function exportCanvasAsPng(titleForFilename: string): Promise<boolean> {
   const canvas = document.querySelector('.canvas-host canvas') as HTMLCanvasElement | null;
   if (!canvas) return false;

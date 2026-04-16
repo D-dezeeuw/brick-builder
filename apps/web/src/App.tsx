@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
+import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { Toasts } from './ui/Toasts';
 import { useKeybindings } from './state/useKeybindings';
@@ -41,6 +42,7 @@ export function App() {
       <main className="canvas-host">
         <Scene />
         <RenderOverlay />
+        <ImportDropZone />
       </main>
       <Toasts />
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
