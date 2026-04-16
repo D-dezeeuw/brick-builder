@@ -15,14 +15,13 @@ import {
   type RectDef,
 } from '@brick/shared';
 
+import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM } from './common';
+
 /**
  * Rectangular brick / plate / tile geometry, optionally hollowed on the bottom
  * with authentic LEGO anti-stud tubes (≥2×2) or pins (1-wide strips).
  * Origin at body bottom-front-left so world placement stays `(gx*8, gy*3.2, gz*8)`.
  */
-const CEILING_THICKNESS_MM = 1.6;
-const ANTI_STUD_TUBE_OUTER_R = 3.25; // OD ≈ 6.5 mm
-const ANTI_STUD_PIN_R = 0.9; // 1-wide strip centerline pins
 
 export function buildRectGeometry(def: RectDef): BufferGeometry {
   const { w, d, layers, top, bottom } = def;
