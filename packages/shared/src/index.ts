@@ -70,3 +70,29 @@ export const SHAPE_FOOTPRINT: Record<BrickShape, ShapeFootprint> = {
 
 /** Cell key for collision lookups. */
 export const cellKey = (gx: number, gy: number, gz: number): string => `${gx},${gy},${gz}`;
+
+/**
+ * All grid cells a brick occupies given its shape and rotation.
+ * Footprint is swapped along X/Z when rotation is 1 or 3 (90° / 270°).
+ */
+export function footprintCells(
+  shape: BrickShape,
+  gx: number,
+  gy: number,
+  gz: number,
+  rotation: Rotation,
+): Array<{ gx: number; gy: number; gz: number }> {
+  const { w, d, layers } = SHAPE_FOOTPRINT[shape];
+  const swap = rotation % 2 === 1;
+  const effW = swap ? d : w;
+  const effD = swap ? w : d;
+  const out: Array<{ gx: number; gy: number; gz: number }> = [];
+  for (let ix = 0; ix < effW; ix++) {
+    for (let iz = 0; iz < effD; iz++) {
+      for (let iy = 0; iy < layers; iy++) {
+        out.push({ gx: gx + ix, gy: gy + iy, gz: gz + iz });
+      }
+    }
+  }
+  return out;
+}

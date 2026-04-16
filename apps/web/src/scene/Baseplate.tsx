@@ -23,6 +23,8 @@ function StudField() {
     }
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
+    // Skip from raycasting — the slab below handles pointer picking. Studs are purely decorative.
+    mesh.raycast = () => {};
   }, [count]);
 
   return (
@@ -38,7 +40,11 @@ export function Baseplate() {
 
   return (
     <group>
-      <mesh position={[0, -PLATE_HEIGHT_MM / 2, 0]} receiveShadow>
+      <mesh
+        position={[0, -PLATE_HEIGHT_MM / 2, 0]}
+        receiveShadow
+        userData={{ kind: 'baseplate' }}
+      >
         <boxGeometry args={[size, PLATE_HEIGHT_MM, size]} />
         <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.8} />
       </mesh>

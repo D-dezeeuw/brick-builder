@@ -87,6 +87,9 @@ function BrickBucket({ shape, color, items }: BucketProps) {
     mesh.count = items.length;
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
+    // Tag for PlacementCursor's raycaster so it can map instanceId → brick.
+    mesh.userData.kind = 'brick-bucket';
+    mesh.userData.items = items;
   }, [items, shape]);
 
   return (
