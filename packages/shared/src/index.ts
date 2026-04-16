@@ -76,6 +76,31 @@ export type Brick = {
 export const cellKey = (gx: number, gy: number, gz: number): string => `${gx},${gy},${gz}`;
 
 /**
+ * Translation to apply AFTER rotating a brick's geometry around the world Y
+ * axis, so the rotated brick's min-corner stays at the grid anchor (gx, gz).
+ * `bodyW`/`bodyD` are the UNROTATED dimensions in mm (w*8, d*8).
+ *
+ * Rotating in-place around the geometry's own centre pushes non-square shapes
+ * out of their grid cells; this offset compensates for that.
+ */
+export function rotationOffsetMM(
+  rotation: Rotation,
+  bodyW: number,
+  bodyD: number,
+): { x: number; z: number } {
+  switch (rotation) {
+    case 0:
+      return { x: 0, z: 0 };
+    case 1:
+      return { x: 0, z: bodyW };
+    case 2:
+      return { x: bodyW, z: bodyD };
+    case 3:
+      return { x: bodyD, z: 0 };
+  }
+}
+
+/**
  * All grid cells a brick occupies given its shape and rotation.
  * Footprint is swapped along X/Z when rotation is 1 or 3 (90° / 270°).
  */

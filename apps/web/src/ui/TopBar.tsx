@@ -7,10 +7,16 @@ type Props = {
 
 export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
   const brickCount = useEditorStore((s) => s.bricks.size);
+  const layerOffset = useEditorStore((s) => s.layerOffset);
   return (
     <>
       <h1 className="title">Untitled Creation</h1>
       <div className="top-bar-right">
+        {layerOffset > 0 && (
+          <span className="stats stats--accent" title="Layer offset (Q/E)">
+            +{layerOffset} layer{layerOffset === 1 ? '' : 's'}
+          </span>
+        )}
         <span className="stats">{brickCount} bricks</span>
         <button
           type="button"

@@ -5,6 +5,7 @@ import {
   SHAPE_CATALOG,
   STUD_PITCH_MM,
   footprintOf,
+  rotationOffsetMM,
   type Brick,
   type BrickColor,
   type BrickShape,
@@ -66,21 +67,22 @@ function BrickBucket({ shape, color, items }: BucketProps) {
     const mesh = ref.current;
     if (!mesh) return;
     const footprint = footprintOf(SHAPE_CATALOG[shape]);
-    const cx = (footprint.w * STUD_PITCH_MM) / 2;
-    const cz = (footprint.d * STUD_PITCH_MM) / 2;
+    const bodyW = footprint.w * STUD_PITCH_MM;
+    const bodyD = footprint.d * STUD_PITCH_MM;
     const m = new Matrix4();
-    const world = new Matrix4();
-    const pivot = new Matrix4();
+    const trans = new Matrix4();
     const rot = new Matrix4();
-    const unpivot = new Matrix4().makeTranslation(-cx, 0, -cz);
-    pivot.makeTranslation(cx, 0, cz);
 
     for (let i = 0; i < items.length; i++) {
       const b = items[i];
-      const angle = b.rotation * (Math.PI / 2);
-      world.makeTranslation(b.gx * STUD_PITCH_MM, b.gy * PLATE_HEIGHT_MM, b.gz * STUD_PITCH_MM);
-      rot.makeRotationY(angle);
-      m.identity().multiply(world).multiply(pivot).multiply(rot).multiply(unpivot);
+      const { x: ox, z: oz } = rotationOffsetMM(b.rotation, bodyW, bodyD);
+      trans.makeTranslation(
+        b.gx * STUD_PITCH_MM + ox,
+        b.gy * PLATE_HEIGHT_MM,
+        b.gz * STUD_PITCH_MM + oz,
+      );
+      rot.makeRotationY(b.rotation * (Math.PI / 2));
+      m.multiplyMatrices(trans, rot);
       mesh.setMatrixAt(i, m);
     }
     mesh.count = items.length;

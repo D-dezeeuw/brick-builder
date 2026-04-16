@@ -6,9 +6,11 @@ import {
   SHAPE_CATALOG,
   STUD_PITCH_MM,
   footprintOf,
+  rotationOffsetMM,
   type Brick,
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
+import { eraseBrick, placeBrick } from '../state/commandStack';
 import { BASEPLATE_STUDS, BRICK_COLOR_HEX } from '../state/constants';
 import { getGeometry } from '../bricks/geometry/builders';
 
@@ -35,6 +37,7 @@ export function PlacementCursor() {
   const selectedShape = useEditorStore((s) => s.selectedShape);
   const rotation = useEditorStore((s) => s.rotation);
   const mode = useEditorStore((s) => s.mode);
+  const layerOffset = useEditorStore((s) => s.layerOffset);
   const canPlaceAt = useEditorStore((s) => s.canPlaceAt);
 
   useEffect(() => {
@@ -165,20 +168,20 @@ export function PlacementCursor() {
 
       if (btn === 2) {
         // Desktop right-click always deletes, regardless of mode.
-        if (h.underBrickId) state.removeBrickById(h.underBrickId);
+        if (h.underBrickId) eraseBrick(h.underBrickId);
         return;
       }
 
       if (state.mode === 'erase') {
-        if (h.underBrickId) state.removeBrickById(h.underBrickId);
+        if (h.underBrickId) eraseBrick(h.underBrickId);
         return;
       }
 
-      state.addBrick({
+      placeBrick({
         shape: state.selectedShape,
         color: state.selectedColor,
         gx: h.gx,
-        gy: h.gy,
+        gy: h.gy + state.layerOffset,
         gz: h.gz,
         rotation: state.rotation,
       });
@@ -219,52 +222,47 @@ export function PlacementCursor() {
     const target = state.bricks.get(hover.underBrickId);
     if (!target) return null;
     const fp = footprintOf(SHAPE_CATALOG[target.shape]);
-    const cx = (fp.w * STUD_PITCH_MM) / 2;
-    const cz = (fp.d * STUD_PITCH_MM) / 2;
+    const bodyW = fp.w * STUD_PITCH_MM;
+    const bodyD = fp.d * STUD_PITCH_MM;
+    const { x: ox, z: oz } = rotationOffsetMM(target.rotation, bodyW, bodyD);
     const targetGeom = getGeometry(target.shape);
     return (
       <group
         position={[
-          target.gx * STUD_PITCH_MM + cx,
+          target.gx * STUD_PITCH_MM + ox,
           target.gy * PLATE_HEIGHT_MM,
-          target.gz * STUD_PITCH_MM + cz,
+          target.gz * STUD_PITCH_MM + oz,
         ]}
         rotation={[0, target.rotation * (Math.PI / 2), 0]}
         userData={{ kind: 'ghost' }}
       >
-        <mesh
-          position={[-cx, 0, -cz]}
-          geometry={targetGeom}
-          renderOrder={10}
-          userData={{ kind: 'ghost' }}
-        >
+        <mesh geometry={targetGeom} renderOrder={10} userData={{ kind: 'ghost' }}>
           <meshStandardMaterial color="#ff3b3b" transparent opacity={0.55} depthWrite={false} />
         </mesh>
       </group>
     );
   }
 
-  // Build mode — preview brick at target cell.
-  const occupied = !canPlaceAt(selectedShape, hover.gx, hover.gy, hover.gz, rotation);
+  // Build mode — preview brick at target cell. Apply the user's layer offset
+  // (Q/E) on top of the raycast-derived gy.
+  const effectiveGy = hover.gy + layerOffset;
+  const occupied = !canPlaceAt(selectedShape, hover.gx, effectiveGy, hover.gz, rotation);
   const footprint = footprintOf(SHAPE_CATALOG[selectedShape]);
-  const cx = (footprint.w * STUD_PITCH_MM) / 2;
-  const cz = (footprint.d * STUD_PITCH_MM) / 2;
-  const wx = hover.gx * STUD_PITCH_MM;
-  const wy = hover.gy * PLATE_HEIGHT_MM;
-  const wz = hover.gz * STUD_PITCH_MM;
+  const bodyW = footprint.w * STUD_PITCH_MM;
+  const bodyD = footprint.d * STUD_PITCH_MM;
+  const { x: ox, z: oz } = rotationOffsetMM(rotation, bodyW, bodyD);
 
   return (
     <group
-      position={[wx + cx, wy, wz + cz]}
+      position={[
+        hover.gx * STUD_PITCH_MM + ox,
+        effectiveGy * PLATE_HEIGHT_MM,
+        hover.gz * STUD_PITCH_MM + oz,
+      ]}
       rotation={[0, rotation * (Math.PI / 2), 0]}
       userData={{ kind: 'ghost' }}
     >
-      <mesh
-        position={[-cx, 0, -cz]}
-        geometry={geometry}
-        renderOrder={10}
-        userData={{ kind: 'ghost' }}
-      >
+      <mesh geometry={geometry} renderOrder={10} userData={{ kind: 'ghost' }}>
         <meshStandardMaterial
           color={occupied ? '#ff3333' : BRICK_COLOR_HEX[selectedColor]}
           transparent

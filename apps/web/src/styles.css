@@ -76,6 +76,11 @@ body,
   color: var(--fg-muted);
 }
 
+.stats--accent {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
 .icon-btn {
   width: 32px;
   height: 32px;

@@ -43,6 +43,12 @@ export function Sidebar() {
           <kbd>Tap</kbd> place · <kbd>R-click</kbd> delete · <kbd>R</kbd> rotate
         </p>
         <p className="hint">
+          <kbd>Q</kbd>/<kbd>E</kbd> layer · <kbd>1</kbd>–<kbd>9</kbd> recent
+        </p>
+        <p className="hint">
+          <kbd>⌘/Ctrl+Z</kbd> undo · <kbd>⌘/Ctrl+Shift+Z</kbd> redo
+        </p>
+        <p className="hint">
           <kbd>Drag</kbd> orbit · <kbd>Middle-drag</kbd> pan · <kbd>Wheel</kbd> zoom
         </p>
       </div>
