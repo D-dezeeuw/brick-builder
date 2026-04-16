@@ -7,6 +7,8 @@ import { RenderOverlay } from './ui/RenderOverlay';
 import { Toasts } from './ui/Toasts';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
+import { useRoomRouter } from './multiplayer/useRoomRouter';
+import { useRoomWrites } from './multiplayer/roomWrites';
 import { warmGeometryCache } from './bricks/geometry/builders';
 
 const MOBILE_BREAKPOINT = 768;
@@ -14,6 +16,8 @@ const MOBILE_BREAKPOINT = 768;
 export function App() {
   useKeybindings();
   usePersistence();
+  useRoomRouter();
+  useRoomWrites();
 
   useEffect(() => {
     warmGeometryCache();

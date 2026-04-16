@@ -46,8 +46,12 @@ function hydrate(): HydrationSource {
 }
 
 function save(): void {
+  const state = useEditorStore.getState();
+  // When a live multiplayer room is authoritative, localStorage would just
+  // keep a stale snapshot that confuses the next session — skip.
+  if (state.roomId) return;
   try {
-    const creation = useEditorStore.getState().serializeCreation();
+    const creation = state.serializeCreation();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(creation));
   } catch (err) {
     // localStorage can throw (quota, Safari private mode). Don't take the app

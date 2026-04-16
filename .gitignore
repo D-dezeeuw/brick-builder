@@ -8,9 +8,11 @@ build/
 *.tsbuildinfo
 
 # env / local config
-.env
-.env.*
-!.env.example
+# .env files are OK to commit when they only hold publishable client-side
+# config (e.g. a Supabase anon key). Per-developer overrides belong in
+# .env.local which stays uncommitted.
+.env.local
+.env.*.local
 
 # editor / OS
 .DS_Store

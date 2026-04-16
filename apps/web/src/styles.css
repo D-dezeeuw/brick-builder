@@ -135,6 +135,57 @@ body,
   font-family: inherit;
 }
 
+.icon-btn--text:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.room-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.08s ease, border-color 0.08s ease;
+}
+
+.room-chip:hover {
+  background: var(--bg-panel-2);
+  border-color: #3a3f4a;
+}
+
+.room-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.room-chip__dot--connecting {
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.room-chip__dot--connected {
+  background: #4caf80;
+}
+
+.room-chip__dot--error {
+  background: #d85f5f;
+}
+
+.room-chip__id {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
 .export-menu {
   position: relative;
 }

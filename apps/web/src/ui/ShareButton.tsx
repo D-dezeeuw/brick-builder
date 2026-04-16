@@ -1,22 +1,23 @@
 import { buildShareUrl } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
+import { roomShareUrl } from '../multiplayer/useRoomRouter';
 
 export function ShareButton() {
   const serializeCreation = useEditorStore((s) => s.serializeCreation);
+  const roomId = useEditorStore((s) => s.roomId);
   const showToast = useToastStore((s) => s.show);
 
   const onShare = async () => {
-    const creation = serializeCreation();
-    const url = buildShareUrl(creation);
+    // Room link wins when connected — collaborators should arrive in the
+    // live session, not a frozen snapshot.
+    const url = roomId ? roomShareUrl(roomId) : buildShareUrl(serializeCreation());
+    const label = roomId ? 'Room link copied' : 'Snapshot link copied';
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         await navigator.clipboard.writeText(url);
-        showToast('Link copied to clipboard', 'success');
+        showToast(label, 'success');
       } else {
-        // Fallback: put the URL in the browser's address bar and let the
-        // user copy it manually. This keeps things working in HTTP dev
-        // previews where the clipboard API is blocked.
         history.replaceState(null, '', url);
         showToast('Share URL updated — copy from the address bar', 'info', 4000);
       }
@@ -32,7 +33,7 @@ export function ShareButton() {
       type="button"
       className="icon-btn icon-btn--text"
       onClick={onShare}
-      title="Copy shareable link"
+      title={roomId ? 'Copy room link' : 'Copy shareable snapshot link'}
       aria-label="Share creation"
     >
       Share

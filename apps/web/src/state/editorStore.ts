@@ -65,6 +65,18 @@ type EditorState = {
   renderMode: boolean;
   /** Live sample count reported by the path tracer; 0 when idle. */
   pathtracerSamples: number;
+
+  // --- Multiplayer / room state ---
+  /** Current room id when connected; null for solo editing. */
+  roomId: string | null;
+  /** Connection phase for the UI (status pill, disable writes on error). */
+  roomStatus: 'idle' | 'connecting' | 'connected' | 'error';
+  /**
+   * When true, the next store mutation is being applied from an inbound
+   * realtime event — the room-sync outbound wrapper should skip it to avoid
+   * echoing the change back to the server.
+   */
+  isRemoteApplying: boolean;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
@@ -90,6 +102,10 @@ type EditorState = {
   setSmaaEnabled: (b: boolean) => void;
   setRenderMode: (b: boolean) => void;
   setPathtracerSamples: (n: number) => void;
+  setRoomId: (id: string | null) => void;
+  setRoomStatus: (s: EditorState['roomStatus']) => void;
+  /** Run a mutation with isRemoteApplying=true so the outbound sync wrapper skips it. */
+  withRemoteApply: <T>(fn: () => T) => T;
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
@@ -133,6 +149,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   smaaEnabled: EFFECT_DEFAULTS.high.smaa,
   renderMode: false,
   pathtracerSamples: 0,
+  roomId: null,
+  roomStatus: 'idle',
+  isRemoteApplying: false,
   layerOffset: 0,
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
@@ -225,6 +244,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSmaaEnabled: (b) => set({ smaaEnabled: b }),
   setRenderMode: (b) => set({ renderMode: b, pathtracerSamples: 0 }),
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
+  setRoomId: (roomId) => set({ roomId }),
+  setRoomStatus: (roomStatus) => set({ roomStatus }),
+  withRemoteApply: (fn) => {
+    set({ isRemoteApplying: true });
+    try {
+      return fn();
+    } finally {
+      set({ isRemoteApplying: false });
+    }
+  },
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),
