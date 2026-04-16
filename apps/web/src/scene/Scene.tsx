@@ -18,6 +18,7 @@ export function Scene() {
   const quality = useEditorStore((s) => s.quality);
   const lightIntensity = useEditorStore((s) => s.lightIntensity);
   const lightWarmth = useEditorStore((s) => s.lightWarmth);
+  const envIntensity = useEditorStore((s) => s.envIntensity);
   const config = QUALITY_CONFIGS[quality];
 
   const lightColor = useMemo(() => {
@@ -27,9 +28,11 @@ export function Scene() {
 
   const baseSize = INITIAL_BASEPLATE_STUDS * STUD_PITCH_MM;
   const camDist = baseSize * 1.1;
-  // Ambient follows warmth too so the overall cast feels coherent, but
-  // stays dimmer when the env map is carrying indirect light.
-  const ambientBase = config.useEnvironment ? 0.15 : 0.5;
+  // Ambient follows warmth too so the overall cast feels coherent. When the
+  // env map is actually fed (on + non-zero intensity), ambient dims down to
+  // avoid double-counting indirect light; otherwise it carries the fill itself.
+  const envContribution = config.useEnvironment ? envIntensity : 0;
+  const ambientBase = Math.max(0.15, 0.5 - 0.35 * envContribution);
 
   return (
     <Canvas
@@ -39,8 +42,11 @@ export function Scene() {
     >
       <color attach="background" args={['#1a1d24']} />
 
-      {/* Environment map for IBL on medium+. background={false} keeps our dark backdrop. */}
-      {config.useEnvironment && <Environment preset="studio" background={false} environmentIntensity={0.8} />}
+      {/* Environment map for IBL on medium+. background={false} keeps our dark backdrop.
+          envIntensity is user-tunable because the stock studio HDRI is very bright. */}
+      {config.useEnvironment && envIntensity > 0 && (
+        <Environment preset="studio" background={false} environmentIntensity={envIntensity} />
+      )}
 
       {/* Ambient is reduced when the env map is carrying indirect light. */}
       <ambientLight intensity={ambientBase * lightIntensity} color={lightColor} />
