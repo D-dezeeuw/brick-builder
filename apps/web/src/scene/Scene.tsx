@@ -1,31 +1,48 @@
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { useRef } from 'react';
-import type { Mesh } from 'three';
-
-function SpinningCube() {
-  const ref = useRef<Mesh>(null);
-  useFrame((_, dt) => {
-    if (!ref.current) return;
-    ref.current.rotation.x += dt * 0.4;
-    ref.current.rotation.y += dt * 0.6;
-  });
-  return (
-    <mesh ref={ref}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#e53935" />
-    </mesh>
-  );
-}
+import { STUD_PITCH_MM } from '@brick/shared';
+import { Baseplate } from './Baseplate';
+import { PlacementCursor } from './PlacementCursor';
+import { InstancedBricks } from '../bricks/InstancedBricks';
+import { BASEPLATE_STUDS } from '../state/constants';
 
 export function Scene() {
+  const baseSize = BASEPLATE_STUDS * STUD_PITCH_MM;
+  const camDist = baseSize * 1.1;
+
   return (
-    <Canvas camera={{ position: [3, 3, 3], fov: 50 }} shadows>
+    <Canvas camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }} shadows>
       <color attach="background" args={['#1a1d24']} />
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 8, 5]} intensity={1.0} castShadow />
-      <SpinningCube />
-      <OrbitControls enableDamping dampingFactor={0.1} />
+
+      <ambientLight intensity={0.5} />
+      <directionalLight
+        position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
+        intensity={1.1}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-baseSize}
+        shadow-camera-right={baseSize}
+        shadow-camera-top={baseSize}
+        shadow-camera-bottom={-baseSize}
+        shadow-camera-near={1}
+        shadow-camera-far={baseSize * 4}
+      />
+
+      <Baseplate />
+      <InstancedBricks />
+      <PlacementCursor />
+
+      <OrbitControls
+        enableDamping
+        dampingFactor={0.12}
+        enablePan={false}
+        minDistance={baseSize * 0.25}
+        maxDistance={baseSize * 3}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 2 - 0.05}
+        target={[0, 0, 0]}
+      />
     </Canvas>
   );
 }
