@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
+import { BrowserUnsupported } from './ui/BrowserUnsupported';
 import { HelpModal } from './ui/HelpModal';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
+import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
 import { Toasts } from './ui/Toasts';
 import { useFirstRunHelp, useHelpStore } from './state/helpStore';
+import { hasWebGL2 } from './state/webgl';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
 import { useRoomRouter } from './multiplayer/useRoomRouter';
@@ -50,7 +53,13 @@ export function App() {
         <TopBar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
       </header>
       <main className="canvas-host">
-        <Scene />
+        {hasWebGL2 ? (
+          <SceneErrorBoundary>
+            <Scene />
+          </SceneErrorBoundary>
+        ) : (
+          <BrowserUnsupported />
+        )}
         <RenderOverlay />
         <ImportDropZone />
       </main>
