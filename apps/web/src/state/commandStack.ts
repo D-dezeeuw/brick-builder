@@ -1,4 +1,4 @@
-import type { Brick } from '@brick/shared';
+import type { Brick, Creation } from '@brick/shared';
 import { useEditorStore } from './editorStore';
 
 type Command = {
@@ -71,6 +71,16 @@ export function placeBrick(input: PlacementInput): string | null {
     },
   });
   return id;
+}
+
+/**
+ * Load a Creation and wipe undo history — an imported scene has no history
+ * worth keeping, and preserving the stack would let undo reintroduce the
+ * pre-import scene in an incoherent way.
+ */
+export function loadCreationWithHistoryReset(creation: Creation): void {
+  useEditorStore.getState().loadCreation(creation);
+  commandStack.clear();
 }
 
 export function eraseBrick(id: string): boolean {

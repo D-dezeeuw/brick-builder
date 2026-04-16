@@ -54,11 +54,21 @@ export {
 
 export { BRICK_COLOR_HEX, BRICK_COLOR_ORDER, type BrickColor } from './colors';
 
+export { CURRENT_SCHEMA_VERSION, validateCreation, type Creation } from './schema';
+
 import { SHAPE_CATALOG, type BrickShape } from './catalog';
 import { footprintOf } from './shapeDef';
 
 /** Rotation around Y in 90° increments. */
 export type Rotation = 0 | 1 | 2 | 3;
+
+/** Baseplate extent in grid coords (exclusive upper bounds). */
+export type BaseplateBounds = {
+  minGx: number;
+  maxGx: number;
+  minGz: number;
+  maxGz: number;
+};
 
 export type Brick = {
   id: string;

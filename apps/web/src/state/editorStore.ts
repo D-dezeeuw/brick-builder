@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import {
+  CURRENT_SCHEMA_VERSION,
   cellKey,
   footprintCells,
+  type BaseplateBounds,
   type Brick,
   type BrickColor,
   type BrickShape,
+  type Creation,
   type Rotation,
 } from '@brick/shared';
 import { EFFECT_DEFAULTS } from './quality';
@@ -31,14 +34,12 @@ const EDGE_MARGIN_STUDS = 4; // trigger expansion when placement is within this 
 const EXPANSION_CHUNK_STUDS = 16;
 const INITIAL_HALF = 16; // initial baseplate is ±16 studs = 32x32
 
-export type BaseplateBounds = {
-  minGx: number; // inclusive
-  maxGx: number; // exclusive
-  minGz: number;
-  maxGz: number;
-};
+export type { BaseplateBounds };
 
 type EditorState = {
+  /** Human-readable creation title — shown editable in the top bar. */
+  title: string;
+
   bricks: Map<string, Brick>;
   /** Every occupied cell → brickId. Multi-layer bricks register one entry per plate-layer they span. */
   cellIndex: Map<string, string>;
@@ -76,6 +77,7 @@ type EditorState = {
   restoreBrick: (brick: Brick) => boolean;
   removeBrickById: (id: string) => boolean;
 
+  setTitle: (title: string) => void;
   setShape: (shape: BrickShape) => void;
   setColor: (color: BrickColor) => void;
   setMode: (mode: EditorMode) => void;
@@ -94,6 +96,11 @@ type EditorState = {
   /** Expand the baseplate if a placement would land within the edge margin. */
   expandBaseplateFor: (brick: Brick) => void;
 
+  /** Flatten current scene to a serialisable Creation (for save/share/export). */
+  serializeCreation: () => Creation;
+  /** Replace the entire scene with a loaded Creation. Clears layer offset. */
+  loadCreation: (creation: Creation) => void;
+
   /** True iff every cell in the prospective footprint is free and gy >= 0. */
   canPlaceAt: (
     shape: BrickShape,
@@ -105,6 +112,8 @@ type EditorState = {
 };
 
 export const useEditorStore = create<EditorState>((set, get) => ({
+  title: 'Untitled Creation',
+
   bricks: new Map(),
   cellIndex: new Map(),
 
@@ -188,6 +197,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     return true;
   },
 
+  setTitle: (title) => set({ title }),
   setShape: (shape) =>
     set((s) => ({
       selectedShape: shape,
@@ -218,6 +228,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),
+
+  serializeCreation: () => {
+    const { title, bricks, baseplateBounds } = get();
+    return {
+      version: CURRENT_SCHEMA_VERSION,
+      title,
+      createdAt: Date.now(),
+      bricks: Array.from(bricks.values()),
+      baseplateBounds,
+    };
+  },
+
+  loadCreation: (creation) => {
+    const nextBricks = new Map<string, Brick>();
+    const nextIndex = new Map<string, string>();
+    for (const b of creation.bricks) {
+      absorbId(b.id);
+      nextBricks.set(b.id, b);
+      const cells = footprintCells(b.shape, b.gx, b.gy, b.gz, b.rotation);
+      for (const c of cells) nextIndex.set(cellKey(c.gx, c.gy, c.gz), b.id);
+    }
+    set({
+      title: creation.title,
+      bricks: nextBricks,
+      cellIndex: nextIndex,
+      baseplateBounds: creation.baseplateBounds,
+      layerOffset: 0,
+    });
+  },
 
   expandBaseplateFor: (brick) => {
     const { baseplateBounds } = get();

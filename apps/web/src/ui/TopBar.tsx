@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { useEditorStore } from '../state/editorStore';
+import { computeStats } from '../state/stats';
 
 type Props = {
   sidebarOpen: boolean;
@@ -6,18 +8,69 @@ type Props = {
 };
 
 export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
-  const brickCount = useEditorStore((s) => s.bricks.size);
+  const bricks = useEditorStore((s) => s.bricks);
+  const title = useEditorStore((s) => s.title);
+  const setTitle = useEditorStore((s) => s.setTitle);
   const layerOffset = useEditorStore((s) => s.layerOffset);
+
+  const stats = useMemo(() => computeStats(bricks.values()), [bricks]);
+
+  // Uncontrolled contentEditable: we render the title once and never let
+  // React rewrite it while the user is typing (React's DOM diff would move
+  // the caret). A one-way sync updates the DOM when the title changes from
+  // the outside (e.g. a shared URL loads a creation).
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (el && el.textContent !== title) el.textContent = title;
+  }, [title]);
+
+  const commitTitle = (el: HTMLElement) => {
+    const next = (el.textContent ?? '').trim() || 'Untitled Creation';
+    if (next !== title) setTitle(next);
+    if (el.textContent !== next) el.textContent = next;
+  };
+
   return (
     <>
-      <h1 className="title">Untitled Creation</h1>
+      <h1
+        ref={titleRef}
+        className="title"
+        contentEditable
+        suppressContentEditableWarning
+        spellCheck={false}
+        aria-label="Creation title"
+        onBlur={(e) => commitTitle(e.currentTarget)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            if (titleRef.current) titleRef.current.textContent = title;
+            e.currentTarget.blur();
+          }
+        }}
+      >
+        {/* Initial content only. Subsequent renders leave the DOM untouched. */}
+        {title}
+      </h1>
       <div className="top-bar-right">
         {layerOffset > 0 && (
           <span className="stats stats--accent" title="Layer offset (Q/E)">
             +{layerOffset} layer{layerOffset === 1 ? '' : 's'}
           </span>
         )}
-        <span className="stats">{brickCount} bricks</span>
+        <StatChip label="bricks" value={stats.brickCount} />
+        {stats.extent && (
+          <StatChip
+            label="size"
+            value={`${stats.extent.w}×${stats.extent.d}×${stats.extent.h}`}
+            title="width × depth in studs × height in plate layers"
+          />
+        )}
+        {stats.uniqueColors > 1 && <StatChip label="colors" value={stats.uniqueColors} />}
         <button
           type="button"
           className="icon-btn"
@@ -29,6 +82,22 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
         </button>
       </div>
     </>
+  );
+}
+
+function StatChip({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: number | string;
+  title?: string;
+}) {
+  return (
+    <span className="stats" title={title}>
+      <span className="stats__value">{value}</span> {label}
+    </span>
   );
 }
 
