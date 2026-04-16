@@ -74,7 +74,17 @@ export function Scene() {
     <Canvas
       camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }}
       shadows={{ type: PCFSoftShadowMap }}
-      gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+      gl={{
+        toneMapping: ACESFilmicToneMapping,
+        toneMappingExposure: 1.0,
+        // postprocessing's internal render targets don't use stencil, and
+        // MSAA resolves fight N8AO's normal-pass blit. Mismatched attachments
+        // trigger "GL_INVALID_OPERATION: glBlitFramebuffer: Read and write
+        // depth stencil attachments cannot be the same image." Let the effect
+        // chain (SMAA) handle anti-aliasing.
+        stencil: false,
+        antialias: false,
+      }}
     >
       <color attach="background" args={['#1a1d24']} />
 
