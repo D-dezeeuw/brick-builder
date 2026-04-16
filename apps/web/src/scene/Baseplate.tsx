@@ -1,34 +1,56 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { InstancedMesh, Matrix4 } from 'three';
 import { PLATE_HEIGHT_MM, STUD_DIAMETER_MM, STUD_HEIGHT_MM, STUD_PITCH_MM } from '@brick/shared';
-import { BASEPLATE_COLOR, BASEPLATE_STUDS } from '../state/constants';
+import { BASEPLATE_COLOR } from '../state/constants';
+import { useEditorStore } from '../state/editorStore';
 
-function StudField() {
+function StudField({
+  minGx,
+  maxGx,
+  minGz,
+  maxGz,
+}: {
+  minGx: number;
+  maxGx: number;
+  minGz: number;
+  maxGz: number;
+}) {
+  const width = maxGx - minGx;
+  const depth = maxGz - minGz;
+  const count = width * depth;
   const ref = useRef<InstancedMesh>(null);
-  const count = BASEPLATE_STUDS * BASEPLATE_STUDS;
 
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
     const m = new Matrix4();
-    const offset = -BASEPLATE_STUDS / 2 + 0.5;
     let i = 0;
-    for (let ix = 0; ix < BASEPLATE_STUDS; ix++) {
-      for (let iz = 0; iz < BASEPLATE_STUDS; iz++) {
-        const x = (ix + offset) * STUD_PITCH_MM;
-        const z = (iz + offset) * STUD_PITCH_MM;
+    for (let ix = 0; ix < width; ix++) {
+      for (let iz = 0; iz < depth; iz++) {
+        const gx = minGx + ix;
+        const gz = minGz + iz;
+        // Stud centered in its cell: world x = gx*8 + 4, z = gz*8 + 4.
+        const x = gx * STUD_PITCH_MM + STUD_PITCH_MM / 2;
+        const z = gz * STUD_PITCH_MM + STUD_PITCH_MM / 2;
         m.makeTranslation(x, STUD_HEIGHT_MM / 2, z);
         mesh.setMatrixAt(i++, m);
       }
     }
+    mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
-    // Skip from raycasting — the slab below handles pointer picking. Studs are purely decorative.
     mesh.raycast = () => {};
-  }, [count]);
+  }, [minGx, maxGx, minGz, maxGz, count, width, depth]);
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow receiveShadow>
+    <instancedMesh
+      // Remount when the capacity grows — InstancedMesh count is fixed at construct time.
+      key={`studs-${count}`}
+      ref={ref}
+      args={[undefined, undefined, count]}
+      castShadow
+      receiveShadow
+    >
       <cylinderGeometry args={[STUD_DIAMETER_MM / 2, STUD_DIAMETER_MM / 2, STUD_HEIGHT_MM, 16]} />
       <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.38} metalness={0.08} />
     </instancedMesh>
@@ -36,19 +58,28 @@ function StudField() {
 }
 
 export function Baseplate() {
-  const size = BASEPLATE_STUDS * STUD_PITCH_MM;
+  const bounds = useEditorStore((s) => s.baseplateBounds);
+  const { minGx, maxGx, minGz, maxGz } = bounds;
+
+  const slab = useMemo(() => {
+    const width = (maxGx - minGx) * STUD_PITCH_MM;
+    const depth = (maxGz - minGz) * STUD_PITCH_MM;
+    const centerX = (minGx + maxGx) * STUD_PITCH_MM * 0.5;
+    const centerZ = (minGz + maxGz) * STUD_PITCH_MM * 0.5;
+    return { width, depth, centerX, centerZ };
+  }, [minGx, maxGx, minGz, maxGz]);
 
   return (
     <group>
       <mesh
-        position={[0, -PLATE_HEIGHT_MM / 2, 0]}
+        position={[slab.centerX, -PLATE_HEIGHT_MM / 2, slab.centerZ]}
         receiveShadow
         userData={{ kind: 'baseplate' }}
       >
-        <boxGeometry args={[size, PLATE_HEIGHT_MM, size]} />
+        <boxGeometry args={[slab.width, PLATE_HEIGHT_MM, slab.depth]} />
         <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.38} metalness={0.08} />
       </mesh>
-      <StudField />
+      <StudField minGx={minGx} maxGx={maxGx} minGz={minGz} maxGz={maxGz} />
     </group>
   );
 }

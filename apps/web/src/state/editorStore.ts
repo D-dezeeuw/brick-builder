@@ -24,6 +24,18 @@ export type EditorMode = 'build' | 'erase';
 
 const HOTBAR_SIZE = 9;
 
+/** Baseplate auto-expansion tuning. */
+const EDGE_MARGIN_STUDS = 4; // trigger expansion when placement is within this many studs of edge
+const EXPANSION_CHUNK_STUDS = 16;
+const INITIAL_HALF = 16; // initial baseplate is ±16 studs = 32x32
+
+export type BaseplateBounds = {
+  minGx: number; // inclusive
+  maxGx: number; // exclusive
+  minGz: number;
+  maxGz: number;
+};
+
 type EditorState = {
   bricks: Map<string, Brick>;
   /** Every occupied cell → brickId. Multi-layer bricks register one entry per plate-layer they span. */
@@ -37,6 +49,8 @@ type EditorState = {
   layerOffset: number;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
   recentShapes: BrickShape[];
+  /** Current baseplate extent in grid coords (auto-grows as bricks reach the edge). */
+  baseplateBounds: BaseplateBounds;
 
   addBrick: (input: PlacementInput) => string | null;
   /** Re-insert a brick with its original id (undo/redo path). Returns true on success. */
@@ -49,6 +63,8 @@ type EditorState = {
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
+  /** Expand the baseplate if a placement would land within the edge margin. */
+  expandBaseplateFor: (brick: Brick) => void;
 
   /** True iff every cell in the prospective footprint is free and gy >= 0. */
   canPlaceAt: (
@@ -70,6 +86,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mode: 'build',
   layerOffset: 0,
   recentShapes: ['brick_2x4'],
+  baseplateBounds: {
+    minGx: -INITIAL_HALF,
+    maxGx: INITIAL_HALF,
+    minGz: -INITIAL_HALF,
+    maxGz: INITIAL_HALF,
+  },
 
   canPlaceAt: (shape, gx, gy, gz, rotation) => {
     if (gy < 0) return false;
@@ -136,4 +158,38 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),
+
+  expandBaseplateFor: (brick) => {
+    const { baseplateBounds } = get();
+    const cells = footprintCells(brick.shape, brick.gx, brick.gy, brick.gz, brick.rotation);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (const c of cells) {
+      if (c.gx < minX) minX = c.gx;
+      if (c.gx > maxX) maxX = c.gx;
+      if (c.gz < minZ) minZ = c.gz;
+      if (c.gz > maxZ) maxZ = c.gz;
+    }
+    let { minGx, maxGx, minGz, maxGz } = baseplateBounds;
+    let changed = false;
+    while (minX < minGx + EDGE_MARGIN_STUDS) {
+      minGx -= EXPANSION_CHUNK_STUDS;
+      changed = true;
+    }
+    while (maxX >= maxGx - EDGE_MARGIN_STUDS) {
+      maxGx += EXPANSION_CHUNK_STUDS;
+      changed = true;
+    }
+    while (minZ < minGz + EDGE_MARGIN_STUDS) {
+      minGz -= EXPANSION_CHUNK_STUDS;
+      changed = true;
+    }
+    while (maxZ >= maxGz - EDGE_MARGIN_STUDS) {
+      maxGz += EXPANSION_CHUNK_STUDS;
+      changed = true;
+    }
+    if (changed) set({ baseplateBounds: { minGx, maxGx, minGz, maxGz } });
+  },
 }));

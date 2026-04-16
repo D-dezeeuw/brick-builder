@@ -11,7 +11,7 @@ import {
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { eraseBrick, placeBrick } from '../state/commandStack';
-import { BASEPLATE_STUDS, BRICK_COLOR_HEX } from '../state/constants';
+import { BRICK_COLOR_HEX } from '../state/constants';
 import { getGeometry } from '../bricks/geometry/builders';
 
 type HoverTarget = {
@@ -43,7 +43,6 @@ export function PlacementCursor() {
   useEffect(() => {
     const dom = gl.domElement;
     const ndc = new Vector2();
-    const halfN = BASEPLATE_STUDS / 2;
 
     // Single-gesture tracker: only one pointer drives the ghost at a time.
     // A second pointer (e.g. a 2nd finger for camera) cancels the gesture so
@@ -70,9 +69,11 @@ export function PlacementCursor() {
         if (normalY < TOP_NORMAL_THRESHOLD) continue;
 
         if (kind === 'baseplate') {
+          const bounds = useEditorStore.getState().baseplateBounds;
           const gx = Math.floor(h.point.x / STUD_PITCH_MM);
           const gz = Math.floor(h.point.z / STUD_PITCH_MM);
-          if (gx < -halfN || gx >= halfN || gz < -halfN || gz >= halfN) return null;
+          if (gx < bounds.minGx || gx >= bounds.maxGx || gz < bounds.minGz || gz >= bounds.maxGz)
+            return null;
           return { gx, gy: 0, gz, underBrickId: null };
         }
 
@@ -83,7 +84,6 @@ export function PlacementCursor() {
           const layers = footprintOf(SHAPE_CATALOG[brick.shape]).layers;
           const gx = Math.floor(h.point.x / STUD_PITCH_MM);
           const gz = Math.floor(h.point.z / STUD_PITCH_MM);
-          if (gx < -halfN || gx >= halfN || gz < -halfN || gz >= halfN) return null;
           return { gx, gy: brick.gy + layers, gz, underBrickId: brick.id };
         }
       }

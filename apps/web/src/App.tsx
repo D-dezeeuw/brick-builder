@@ -3,11 +3,16 @@ import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
 import { useKeybindings } from './state/useKeybindings';
+import { warmGeometryCache } from './bricks/geometry/builders';
 
 const MOBILE_BREAKPOINT = 768;
 
 export function App() {
   useKeybindings();
+
+  useEffect(() => {
+    warmGeometryCache();
+  }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     typeof window === 'undefined' ? true : window.innerWidth > MOBILE_BREAKPOINT,

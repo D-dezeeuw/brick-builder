@@ -15,10 +15,15 @@ import { BRICK_COLOR_HEX } from '../state/constants';
 import { getGeometry } from './geometry/builders';
 import { createBrickMaterial } from './material';
 
-const BUCKET_CAPACITY = 1024;
+const MIN_BUCKET_CAPACITY = 256;
 
 function bucketKey(shape: BrickShape, color: BrickColor): string {
   return `${shape}|${color}`;
+}
+
+function capacityFor(n: number): number {
+  if (n <= MIN_BUCKET_CAPACITY) return MIN_BUCKET_CAPACITY;
+  return 1 << Math.ceil(Math.log2(n));
 }
 
 export function InstancedBricks() {
@@ -62,6 +67,7 @@ function BrickBucket({ shape, color, items }: BucketProps) {
   const ref = useRef<InstancedMesh>(null);
   const geometry = useMemo(() => getGeometry(shape), [shape]);
   const material = useMemo(() => createBrickMaterial(BRICK_COLOR_HEX[color]), [color]);
+  const capacity = capacityFor(items.length);
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -95,8 +101,12 @@ function BrickBucket({ shape, color, items }: BucketProps) {
 
   return (
     <instancedMesh
+      // Capacity growth requires remounting the mesh — InstancedMesh count
+      // is fixed at construct time. Keying on capacity means we only pay for
+      // a remount when a bucket doubles past a power-of-two threshold.
+      key={capacity}
       ref={ref}
-      args={[geometry, material, BUCKET_CAPACITY]}
+      args={[geometry, material, capacity]}
       castShadow
       receiveShadow
     />

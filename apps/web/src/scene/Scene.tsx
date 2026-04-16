@@ -5,10 +5,13 @@ import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { PlacementCursor } from './PlacementCursor';
 import { InstancedBricks } from '../bricks/InstancedBricks';
-import { BASEPLATE_STUDS } from '../state/constants';
+
+// Camera framing — sized for the initial 32×32 baseplate; OrbitControls zoom
+// range keeps the view usable as the baseplate grows in 16-stud chunks.
+const INITIAL_BASEPLATE_STUDS = 32;
 
 export function Scene() {
-  const baseSize = BASEPLATE_STUDS * STUD_PITCH_MM;
+  const baseSize = INITIAL_BASEPLATE_STUDS * STUD_PITCH_MM;
   const camDist = baseSize * 1.1;
 
   return (

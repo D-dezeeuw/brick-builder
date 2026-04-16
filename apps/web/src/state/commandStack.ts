@@ -56,11 +56,15 @@ export function placeBrick(input: PlacementInput): string | null {
   if (!id) return null;
   const snapshot = useEditorStore.getState().bricks.get(id);
   if (!snapshot) return null;
+  useEditorStore.getState().expandBaseplateFor(snapshot);
 
   commandStack.run({
     do: () => {
       const s = useEditorStore.getState();
-      if (!s.bricks.has(snapshot.id)) s.restoreBrick(snapshot);
+      if (!s.bricks.has(snapshot.id)) {
+        s.restoreBrick(snapshot);
+        s.expandBaseplateFor(snapshot);
+      }
     },
     undo: () => {
       useEditorStore.getState().removeBrickById(snapshot.id);
