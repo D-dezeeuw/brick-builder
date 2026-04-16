@@ -90,6 +90,10 @@ export function Scene() {
         // chain (SMAA) handle anti-aliasing.
         stencil: false,
         antialias: false,
+        // Required so Export → PNG can read the drawing buffer from a button
+        // click (the compositor clears it after each frame otherwise). Small
+        // perf cost; the export UX outweighs it.
+        preserveDrawingBuffer: true,
       }}
     >
       <color attach="background" args={['#1a1d24']} />
