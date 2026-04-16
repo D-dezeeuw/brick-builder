@@ -215,7 +215,12 @@ function rowToBrick(row: BrickRow): Brick {
   };
 }
 
-export function brickToRow(brick: Brick, roomId: string): BrickRow {
+/**
+ * Row payload for INSERT. `created_at` is deliberately omitted so the DB
+ * `default now()` fills it — passing an empty string makes Postgres try
+ * to parse '' as a timestamptz and explode with SQLSTATE 22007.
+ */
+export function brickToRow(brick: Brick, roomId: string): Omit<BrickRow, 'created_at'> {
   return {
     id: brick.id,
     room_id: roomId,
@@ -225,8 +230,6 @@ export function brickToRow(brick: Brick, roomId: string): BrickRow {
     gy: brick.gy,
     gz: brick.gz,
     rotation: brick.rotation,
-    // created_at is filled by the DB default — the shape requires it.
-    created_at: '',
   };
 }
 
