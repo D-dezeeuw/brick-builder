@@ -5,7 +5,6 @@ import {
   Path,
   Shape,
 } from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   PLATE_HEIGHT_MM,
   STUD_DIAMETER_MM,
@@ -13,7 +12,12 @@ import {
   STUD_PITCH_MM,
   type RoundDef,
 } from '@brick/shared';
-import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM } from './common';
+import {
+  ANTI_STUD_PIN_R,
+  ANTI_STUD_TUBE_OUTER_R,
+  CEILING_THICKNESS_MM,
+  safeMerge,
+} from './common';
 
 /**
  * Round plate / round brick — 1×1 or 2×2 footprint. Cylindrical body with
@@ -31,8 +35,7 @@ export function buildRoundGeometry(def: RoundDef): BufferGeometry {
   const parts: BufferGeometry[] = [buildRoundBody(bodyRadius, bodyH, diameter, cx, cz)];
   parts.push(...buildRoundTop(cx, cz, bodyH, diameter, top));
 
-  const merged = mergeGeometries(parts);
-  if (!merged) throw new Error('round mergeGeometries returned null');
+  const merged = safeMerge(parts);
   merged.computeVertexNormals();
   return merged;
 }
@@ -69,9 +72,7 @@ function buildRoundBody(
   const cap = new CylinderGeometry(bodyRadius, bodyRadius, CEILING_THICKNESS_MM, 32);
   cap.translate(cx, carvedDepth + CEILING_THICKNESS_MM / 2, cz);
 
-  const body = mergeGeometries([walls, cap]);
-  if (!body) throw new Error('round body merge failed');
-  return body;
+  return safeMerge([walls, cap]);
 }
 
 function buildRoundTop(

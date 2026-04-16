@@ -6,7 +6,6 @@ import {
   Path,
   Shape,
 } from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   PLATE_HEIGHT_MM,
   STUD_DIAMETER_MM,
@@ -15,7 +14,12 @@ import {
   type RectDef,
 } from '@brick/shared';
 
-import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM } from './common';
+import {
+  ANTI_STUD_PIN_R,
+  ANTI_STUD_TUBE_OUTER_R,
+  CEILING_THICKNESS_MM,
+  safeMerge,
+} from './common';
 
 /**
  * Rectangular brick / plate / tile geometry, optionally hollowed on the bottom
@@ -32,8 +36,7 @@ export function buildRectGeometry(def: RectDef): BufferGeometry {
   const parts: BufferGeometry[] = [buildBody(bodyW, bodyD, bodyH, w, d, bottom)];
   parts.push(...buildTop(bodyW, bodyD, bodyH, w, d, top));
 
-  const merged = mergeGeometries(parts);
-  if (!merged) throw new Error('mergeGeometries returned null');
+  const merged = safeMerge(parts);
   merged.computeVertexNormals();
   return merged;
 }
@@ -78,9 +81,7 @@ function buildBody(
   const cap = new BoxGeometry(bodyW, CEILING_THICKNESS_MM, bodyD);
   cap.translate(bodyW / 2, carvedDepth + CEILING_THICKNESS_MM / 2, bodyD / 2);
 
-  const body = mergeGeometries([walls, cap]);
-  if (!body) throw new Error('Body merge failed');
-  return body;
+  return safeMerge([walls, cap]);
 }
 
 function addAntiStudHoles(outline: Shape, w: number, d: number): void {

@@ -4,7 +4,6 @@ import {
   ExtrudeGeometry,
   Shape,
 } from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   PLATE_HEIGHT_MM,
   STUD_DIAMETER_MM,
@@ -12,6 +11,7 @@ import {
   STUD_PITCH_MM,
   type SlopeDef,
 } from '@brick/shared';
+import { safeMerge } from './common';
 
 /**
  * Triangular-prism slope piece. `d == 1` (cheese-style) is a pure wedge.
@@ -63,8 +63,7 @@ export function buildSlopeGeometry(def: SlopeDef): BufferGeometry {
     }
   }
 
-  const merged = mergeGeometries(parts);
-  if (!merged) throw new Error('slope merge failed');
+  const merged = safeMerge(parts);
   merged.computeVertexNormals();
   return merged;
 }
