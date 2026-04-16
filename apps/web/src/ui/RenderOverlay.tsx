@@ -14,7 +14,8 @@ export function RenderOverlay() {
     <div className="render-overlay" role="status" aria-live="polite">
       <span className="render-overlay__dot" />
       <span className="render-overlay__text">
-        Path-traced render · <span className="render-overlay__count">{samples} samples</span>
+        Path-traced render ·{' '}
+        <span className="render-overlay__count">{Math.round(samples)} samples</span>
       </span>
       <button
         type="button"

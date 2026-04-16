@@ -19,6 +19,9 @@ const Pathtracer = lazy(() =>
 const PathtracerSampleReporter = lazy(() =>
   import('./PathtracerSampleReporter').then((m) => ({ default: m.PathtracerSampleReporter })),
 );
+const PathtracingExpansion = lazy(() =>
+  import('./PathtracingExpansion').then((m) => ({ default: m.PathtracingExpansion })),
+);
 
 const INITIAL_BASEPLATE_STUDS = 32;
 
@@ -98,6 +101,7 @@ export function Scene() {
               `minSamples` is the lower bound before the first frame displays. */}
           <Pathtracer minSamples={4} bounces={3} enabled>
             {sceneContent}
+            <PathtracingExpansion />
             <PathtracerSampleReporter />
           </Pathtracer>
         </Suspense>
