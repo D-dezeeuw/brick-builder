@@ -47,6 +47,10 @@ type EditorState = {
   rotation: Rotation;
   mode: EditorMode;
   quality: Quality;
+  /** Directional-light intensity multiplier (0..2). */
+  lightIntensity: number;
+  /** Directional-light warmth (-1 cool / blueish, 0 neutral, 1 warm / amber). */
+  lightWarmth: number;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
@@ -63,6 +67,8 @@ type EditorState = {
   setColor: (color: BrickColor) => void;
   setMode: (mode: EditorMode) => void;
   setQuality: (q: Quality) => void;
+  setLightIntensity: (n: number) => void;
+  setLightWarmth: (n: number) => void;
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
@@ -88,6 +94,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   rotation: 0,
   mode: 'build',
   quality: 'high',
+  lightIntensity: 1.0,
+  lightWarmth: 0,
   layerOffset: 0,
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
@@ -160,6 +168,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setColor: (color) => set({ selectedColor: color }),
   setMode: (mode) => set({ mode }),
   setQuality: (quality) => set({ quality }),
+  setLightIntensity: (n) => set({ lightIntensity: Math.max(0, Math.min(2, n)) }),
+  setLightWarmth: (n) => set({ lightWarmth: Math.max(-1, Math.min(1, n)) }),
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),

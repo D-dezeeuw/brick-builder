@@ -3,6 +3,7 @@ import { useEditorStore, type EditorMode, type Quality } from '../state/editorSt
 import { BRICK_COLOR_HEX, BRICK_COLOR_ORDER } from '../state/constants';
 import { QUALITY_LABEL, QUALITY_ORDER } from '../state/quality';
 import { BrickBrowser } from './BrickBrowser';
+import { LightingSection } from './LightingSection';
 
 export function Sidebar() {
   const selected = useEditorStore((s) => s.selectedColor);
@@ -36,6 +37,8 @@ export function Sidebar() {
           ))}
         </div>
       </div>
+
+      <LightingSection />
 
       <div className="sidebar-section">
         <h2 className="sidebar-heading">Color</h2>

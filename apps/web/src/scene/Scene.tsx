@@ -1,12 +1,14 @@
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { ACESFilmicToneMapping, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
+import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { PlacementCursor } from './PlacementCursor';
 import { InstancedBricks } from '../bricks/InstancedBricks';
 import { useEditorStore } from '../state/editorStore';
 import { QUALITY_CONFIGS } from '../state/quality';
+import { warmthToRgb } from './lightColor';
 
 // Camera framing — sized for the initial 32×32 baseplate; OrbitControls zoom
 // range keeps the view usable as the baseplate grows in 16-stud chunks.
@@ -14,10 +16,20 @@ const INITIAL_BASEPLATE_STUDS = 32;
 
 export function Scene() {
   const quality = useEditorStore((s) => s.quality);
+  const lightIntensity = useEditorStore((s) => s.lightIntensity);
+  const lightWarmth = useEditorStore((s) => s.lightWarmth);
   const config = QUALITY_CONFIGS[quality];
+
+  const lightColor = useMemo(() => {
+    const [r, g, b] = warmthToRgb(lightWarmth);
+    return new Color(r, g, b);
+  }, [lightWarmth]);
 
   const baseSize = INITIAL_BASEPLATE_STUDS * STUD_PITCH_MM;
   const camDist = baseSize * 1.1;
+  // Ambient follows warmth too so the overall cast feels coherent, but
+  // stays dimmer when the env map is carrying indirect light.
+  const ambientBase = config.useEnvironment ? 0.15 : 0.5;
 
   return (
     <Canvas
@@ -31,10 +43,11 @@ export function Scene() {
       {config.useEnvironment && <Environment preset="studio" background={false} environmentIntensity={0.8} />}
 
       {/* Ambient is reduced when the env map is carrying indirect light. */}
-      <ambientLight intensity={config.useEnvironment ? 0.15 : 0.5} />
+      <ambientLight intensity={ambientBase * lightIntensity} color={lightColor} />
       <directionalLight
         position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
-        intensity={config.useEnvironment ? 0.9 : 1.1}
+        intensity={lightIntensity}
+        color={lightColor}
         castShadow
         shadow-mapSize-width={config.shadowMapSize}
         shadow-mapSize-height={config.shadowMapSize}
