@@ -4,12 +4,14 @@ import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { useKeybindings } from './state/useKeybindings';
+import { usePersistence } from './state/persistence';
 import { warmGeometryCache } from './bricks/geometry/builders';
 
 const MOBILE_BREAKPOINT = 768;
 
 export function App() {
   useKeybindings();
+  usePersistence();
 
   useEffect(() => {
     warmGeometryCache();
