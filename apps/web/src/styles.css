@@ -296,6 +296,11 @@ body,
   letter-spacing: 0.01em;
 }
 
+.render-overlay__count {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .render-overlay__exit {
   margin-left: 4px;
   padding: 3px 10px;

@@ -62,6 +62,8 @@ type EditorState = {
 
   /** When true, scene renders via GPU path tracer (non-interactive preview). */
   renderMode: boolean;
+  /** Live sample count reported by the path tracer; 0 when idle. */
+  pathtracerSamples: number;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
@@ -85,6 +87,7 @@ type EditorState = {
   setBloomEnabled: (b: boolean) => void;
   setSmaaEnabled: (b: boolean) => void;
   setRenderMode: (b: boolean) => void;
+  setPathtracerSamples: (n: number) => void;
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
@@ -120,6 +123,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   bloomEnabled: EFFECT_DEFAULTS.high.bloom,
   smaaEnabled: EFFECT_DEFAULTS.high.smaa,
   renderMode: false,
+  pathtracerSamples: 0,
   layerOffset: 0,
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
@@ -209,7 +213,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setAoEnabled: (b) => set({ aoEnabled: b }),
   setBloomEnabled: (b) => set({ bloomEnabled: b }),
   setSmaaEnabled: (b) => set({ smaaEnabled: b }),
-  setRenderMode: (b) => set({ renderMode: b }),
+  setRenderMode: (b) => set({ renderMode: b, pathtracerSamples: 0 }),
+  setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),

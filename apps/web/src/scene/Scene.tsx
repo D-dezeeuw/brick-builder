@@ -16,6 +16,9 @@ const PostFX = lazy(() => import('./PostFX').then((m) => ({ default: m.PostFX })
 const Pathtracer = lazy(() =>
   import('@react-three/gpu-pathtracer').then((m) => ({ default: m.Pathtracer })),
 );
+const PathtracerSampleReporter = lazy(() =>
+  import('./PathtracerSampleReporter').then((m) => ({ default: m.PathtracerSampleReporter })),
+);
 
 const INITIAL_BASEPLATE_STUDS = 32;
 
@@ -90,8 +93,12 @@ export function Scene() {
 
       {renderMode ? (
         <Suspense fallback={null}>
-          <Pathtracer minSamples={2} samples={1} bounces={3} enabled>
+          {/* Omit `samples` so it defaults to Infinity — otherwise the tracer
+              stops after hitting that cap and never refines.
+              `minSamples` is the lower bound before the first frame displays. */}
+          <Pathtracer minSamples={4} bounces={3} enabled>
             {sceneContent}
+            <PathtracerSampleReporter />
           </Pathtracer>
         </Suspense>
       ) : (
