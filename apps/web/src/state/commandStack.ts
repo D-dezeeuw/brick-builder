@@ -1,5 +1,6 @@
 import type { Brick, Creation } from '@brick/shared';
 import { useEditorStore } from './editorStore';
+import { markPlaced, playPlacementSound } from './placementFeedback';
 
 type Command = {
   do: () => void;
@@ -57,6 +58,12 @@ export function placeBrick(input: PlacementInput): string | null {
   const snapshot = useEditorStore.getState().bricks.get(id);
   if (!snapshot) return null;
   useEditorStore.getState().expandBaseplateFor(snapshot);
+
+  // Feedback — register the drop-in animation and fire the click
+  // sound. Inbound remote placements skip this (see roomSync), so
+  // only the local builder hears and sees the flourish.
+  markPlaced(id);
+  playPlacementSound();
 
   commandStack.run({
     do: () => {

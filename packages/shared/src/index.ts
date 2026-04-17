@@ -135,6 +135,41 @@ export function rotationOffsetMM(
 }
 
 /**
+ * Reflect a placement across a world axis plane (x=0 or z=0). Used by
+ * the "mirror" build mode so a placed brick auto-drops its twin on the
+ * other side. Rotation flips sign because reflection is the inverse of
+ * a Y-axis rotation; position math accounts for the footprint so the
+ * mirror lands on matching cells, not shifted by one stud.
+ *
+ * Returns null if the mirrored target would overlap the source (e.g.
+ * a 1×2 brick placed straddling the axis), so callers can skip the
+ * second placement instead of producing an invalid pair.
+ */
+export function mirrorPlacement(
+  shape: BrickShape,
+  gx: number,
+  gz: number,
+  rotation: Rotation,
+  axis: 'x' | 'z',
+): { gx: number; gz: number; rotation: Rotation } | null {
+  const { w, d, layers: _l } = footprintOf(SHAPE_CATALOG[shape]);
+  void _l;
+  const swap = rotation % 2 === 1;
+  const effW = swap ? d : w;
+  const effD = swap ? w : d;
+  if (axis === 'x') {
+    const mgx = -gx - effW;
+    // Overlap if the mirrored range intersects the source's X range.
+    if (mgx + effW > gx && mgx < gx + effW) return null;
+    return { gx: mgx, gz, rotation: ((4 - rotation) % 4) as Rotation };
+  }
+  // axis === 'z'
+  const mgz = -gz - effD;
+  if (mgz + effD > gz && mgz < gz + effD) return null;
+  return { gx, gz: mgz, rotation: ((4 - rotation) % 4) as Rotation };
+}
+
+/**
  * All grid cells a brick occupies given its shape and rotation.
  * Footprint is swapped along X/Z when rotation is 1 or 3 (90° / 270°).
  */

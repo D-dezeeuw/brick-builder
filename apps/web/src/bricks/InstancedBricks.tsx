@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Color, InstancedMesh, Matrix4 } from 'three';
 import {
   PLATE_HEIGHT_MM,
@@ -12,6 +13,7 @@ import {
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { BRICK_COLOR_HEX } from '../state/constants';
+import { getPlacementProgress, hasActivePlacementAnimations } from '../state/placementFeedback';
 import { QUALITY_CONFIGS } from '../state/quality';
 import { getGeometry } from './geometry/builders';
 import { createBrickMaterial } from './material';
@@ -147,13 +149,56 @@ function BrickBucket({ shape, color, transparent, items }: BucketProps) {
   // that case because its deps haven't changed — only the mesh instance has —
   // leaving the fresh InstancedMesh with identity matrices and every brick
   // stacked on the origin.
+  const meshRef = useRef<InstancedMesh | null>(null);
   const setMesh = useCallback(
     (mesh: InstancedMesh | null) => {
+      meshRef.current = mesh;
       if (!mesh) return;
       populateMesh(mesh, items, shape);
     },
     [items, shape],
   );
+
+  // Drop-in animation. While any placement is mid-animation (<180ms
+  // old) we patch that instance's matrix each frame — rising from
+  // ~15mm above its resting Y with a small scale overshoot that eases
+  // back to 1.0. No-op every other frame (cheap check on a Map size)
+  // so the steady-state cost is a single `hasActivePlacementAnimations`
+  // call per bucket per frame.
+  const footprint = useMemo(() => footprintOf(SHAPE_CATALOG[shape]), [shape]);
+  useFrame(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    if (!hasActivePlacementAnimations()) return;
+    const now = performance.now();
+    const bodyW = footprint.w * STUD_PITCH_MM;
+    const bodyD = footprint.d * STUD_PITCH_MM;
+    const m = new Matrix4();
+    const trans = new Matrix4();
+    const rot = new Matrix4();
+    const scl = new Matrix4();
+    let patched = false;
+    for (let i = 0; i < items.length; i++) {
+      const b = items[i];
+      const p = getPlacementProgress(b.id, now);
+      if (p === null) continue;
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      const rise = (1 - eased) * 15; // mm above resting Y
+      const scale = 1 + (1 - eased) * 0.08;
+      const { x: ox, z: oz } = rotationOffsetMM(b.rotation, bodyW, bodyD);
+      trans.makeTranslation(
+        b.gx * STUD_PITCH_MM + ox,
+        b.gy * PLATE_HEIGHT_MM + rise,
+        b.gz * STUD_PITCH_MM + oz,
+      );
+      rot.makeRotationY(b.rotation * (Math.PI / 2));
+      scl.makeScale(scale, scale, scale);
+      m.multiplyMatrices(trans, rot).multiply(scl);
+      mesh.setMatrixAt(i, m);
+      patched = true;
+    }
+    if (patched) mesh.instanceMatrix.needsUpdate = true;
+  });
 
   return (
     <instancedMesh

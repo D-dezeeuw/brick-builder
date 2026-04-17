@@ -8,6 +8,7 @@ import { Hotbar } from './ui/Hotbar';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
+import { ChatPanel } from './ui/ChatPanel';
 import { PasswordPromptModal } from './ui/PasswordPromptModal';
 import { SettingsModal } from './ui/SettingsModal';
 import { Toasts } from './ui/Toasts';
@@ -17,6 +18,7 @@ import { hasWebGL2 } from './state/webgl';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
 import { ensureAnonymousSession } from './multiplayer/auth';
+import { useRoomChat } from './multiplayer/useRoomChat';
 import { useRoomRouter } from './multiplayer/useRoomRouter';
 import { useRoomWrites } from './multiplayer/roomWrites';
 import { warmGeometryCache } from './bricks/geometry/builders';
@@ -28,6 +30,7 @@ export function App() {
   usePersistence();
   useRoomRouter();
   useRoomWrites();
+  useRoomChat();
   useFirstRunHelp();
 
   const helpOpen = useHelpStore((s) => s.open);
@@ -79,6 +82,7 @@ export function App() {
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <PasswordPromptModal />
+      <ChatPanel />
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
       </aside>

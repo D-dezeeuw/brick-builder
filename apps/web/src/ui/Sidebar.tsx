@@ -10,6 +10,8 @@ export function Sidebar() {
   const setMode = useEditorStore((s) => s.setMode);
   const transparentMode = useEditorStore((s) => s.transparentMode);
   const setTransparentMode = useEditorStore((s) => s.setTransparentMode);
+  const mirrorAxis = useEditorStore((s) => s.mirrorAxis);
+  const setMirrorAxis = useEditorStore((s) => s.setMirrorAxis);
 
   return (
     <div className="sidebar-content">
@@ -45,6 +47,20 @@ export function Sidebar() {
             <span className="toggle-row__hint">Place transmissive glass bricks</span>
           </span>
         </label>
+      </div>
+
+      <div className="sidebar-section">
+        <h2 className="sidebar-heading">Mirror</h2>
+        <div className="mode-row" role="tablist" aria-label="Mirror axis">
+          <MirrorButton
+            label="Off"
+            value="off"
+            active={mirrorAxis === 'off'}
+            onSelect={setMirrorAxis}
+          />
+          <MirrorButton label="X" value="x" active={mirrorAxis === 'x'} onSelect={setMirrorAxis} />
+          <MirrorButton label="Z" value="z" active={mirrorAxis === 'z'} onSelect={setMirrorAxis} />
+        </div>
       </div>
 
       <div className="sidebar-section">
@@ -87,6 +103,31 @@ function ColorSwatch({
       title={transparent ? `Select clear ${color}` : color}
       aria-label={`Select ${transparent ? 'clear ' : ''}${color}`}
     />
+  );
+}
+
+function MirrorButton({
+  label,
+  value,
+  active,
+  onSelect,
+}: {
+  label: string;
+  value: 'off' | 'x' | 'z';
+  active: boolean;
+  onSelect: (v: 'off' | 'x' | 'z') => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={`mode-btn${active ? ' mode-btn--active' : ''}`}
+      onClick={() => onSelect(value)}
+      title={value === 'off' ? 'No mirror' : `Mirror across ${value.toUpperCase()}=0 plane`}
+    >
+      {label}
+    </button>
   );
 }
 

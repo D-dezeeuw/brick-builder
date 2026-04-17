@@ -6,6 +6,7 @@ import {
   SHAPE_CATALOG,
   STUD_PITCH_MM,
   footprintOf,
+  mirrorPlacement,
   rotationOffsetMM,
   type Brick,
 } from '@brick/shared';
@@ -39,6 +40,7 @@ export function PlacementCursor() {
   const mode = useEditorStore((s) => s.mode);
   const layerOffset = useEditorStore((s) => s.layerOffset);
   const placementOffset = useEditorStore((s) => s.placementOffset);
+  const mirrorAxis = useEditorStore((s) => s.mirrorAxis);
   const canPlaceAt = useEditorStore((s) => s.canPlaceAt);
 
   useEffect(() => {
@@ -55,6 +57,10 @@ export function PlacementCursor() {
     let downT = 0;
     let downBtn = -1;
     let downType: string = 'mouse';
+    // Eyedropper: Alt held at pointerdown copies the hovered brick's
+    // properties instead of placing. Captured on down so briefly
+    // releasing Alt between down and up doesn't swallow the pick.
+    let downAlt = false;
 
     const computeHover = (clientX: number, clientY: number): HoverTarget | null => {
       const rect = dom.getBoundingClientRect();
@@ -138,6 +144,7 @@ export function PlacementCursor() {
       downT = performance.now();
       downBtn = e.button;
       downType = e.pointerType;
+      downAlt = e.altKey;
       // Touch has no hover — update ghost immediately on touchdown so the
       // user sees where their tap landed.
       if (e.pointerType !== 'mouse') updateHoverFromEvent(e);
@@ -151,9 +158,11 @@ export function PlacementCursor() {
       const wasCancelled = cancelled;
       const btn = downBtn;
       const type = downType;
+      const wasAlt = downAlt;
       activePointerId = null;
       cancelled = false;
       downBtn = -1;
+      downAlt = false;
 
       if (wasCancelled) return;
 
@@ -170,6 +179,19 @@ export function PlacementCursor() {
       if (!h) return;
       const state = useEditorStore.getState();
 
+      // Eyedropper beats everything else (except right-click delete).
+      // Copies shape + color + transparent from the brick under the
+      // cursor into the current selection, ready for the next click.
+      if (wasAlt && btn !== 2 && h.underBrickId) {
+        const picked = state.bricks.get(h.underBrickId);
+        if (picked) {
+          state.setShape(picked.shape);
+          state.setColor(picked.color);
+          state.setTransparentMode(picked.transparent === true);
+        }
+        return;
+      }
+
       if (btn === 2) {
         // Desktop right-click always deletes, regardless of mode.
         if (h.underBrickId) eraseBrick(h.underBrickId);
@@ -181,15 +203,41 @@ export function PlacementCursor() {
         return;
       }
 
+      const primaryGx = h.gx + state.placementOffset.gx;
+      const primaryGy = h.gy + state.layerOffset;
+      const primaryGz = h.gz + state.placementOffset.gz;
       placeBrick({
         shape: state.selectedShape,
         color: state.selectedColor,
-        gx: h.gx + state.placementOffset.gx,
-        gy: h.gy + state.layerOffset,
-        gz: h.gz + state.placementOffset.gz,
+        gx: primaryGx,
+        gy: primaryGy,
+        gz: primaryGz,
         rotation: state.rotation,
         transparent: state.transparentMode,
       });
+      // Mirror mode: drop the reflected twin too. Undo treats them as
+      // two separate ops, which is fine — the user rarely needs to keep
+      // one half of a symmetric pair.
+      if (state.mirrorAxis !== 'off') {
+        const m = mirrorPlacement(
+          state.selectedShape,
+          primaryGx,
+          primaryGz,
+          state.rotation,
+          state.mirrorAxis,
+        );
+        if (m) {
+          placeBrick({
+            shape: state.selectedShape,
+            color: state.selectedColor,
+            gx: m.gx,
+            gy: primaryGy,
+            gz: m.gz,
+            rotation: m.rotation,
+            transparent: state.transparentMode,
+          });
+        }
+      }
       state.resetPlacementOffset();
     };
 
@@ -322,24 +370,52 @@ export function PlacementCursor() {
   const bodyD = footprint.d * STUD_PITCH_MM;
   const { x: ox, z: oz } = rotationOffsetMM(rotation, bodyW, bodyD);
 
+  const mirror =
+    mirrorAxis === 'off'
+      ? null
+      : mirrorPlacement(selectedShape, effectiveGx, effectiveGz, rotation, mirrorAxis);
+  const mirrorBodyW = (rotation % 2 === 1 ? footprint.d : footprint.w) * STUD_PITCH_MM;
+  const mirrorBodyD = (rotation % 2 === 1 ? footprint.w : footprint.d) * STUD_PITCH_MM;
+  const mirrorOff = mirror
+    ? rotationOffsetMM(mirror.rotation, mirrorBodyW, mirrorBodyD)
+    : { x: 0, z: 0 };
+  const ghostColor = occupied ? '#ff3333' : BRICK_COLOR_HEX[selectedColor];
+
   return (
-    <group
-      position={[
-        effectiveGx * STUD_PITCH_MM + ox,
-        effectiveGy * PLATE_HEIGHT_MM,
-        effectiveGz * STUD_PITCH_MM + oz,
-      ]}
-      rotation={[0, rotation * (Math.PI / 2), 0]}
-      userData={{ kind: 'ghost' }}
-    >
-      <mesh geometry={geometry} renderOrder={10} userData={{ kind: 'ghost' }}>
-        <meshStandardMaterial
-          color={occupied ? '#ff3333' : BRICK_COLOR_HEX[selectedColor]}
-          transparent
-          opacity={0.45}
-          depthWrite={false}
-        />
-      </mesh>
-    </group>
+    <>
+      <group
+        position={[
+          effectiveGx * STUD_PITCH_MM + ox,
+          effectiveGy * PLATE_HEIGHT_MM,
+          effectiveGz * STUD_PITCH_MM + oz,
+        ]}
+        rotation={[0, rotation * (Math.PI / 2), 0]}
+        userData={{ kind: 'ghost' }}
+      >
+        <mesh geometry={geometry} renderOrder={10} userData={{ kind: 'ghost' }}>
+          <meshStandardMaterial color={ghostColor} transparent opacity={0.45} depthWrite={false} />
+        </mesh>
+      </group>
+      {mirror && (
+        <group
+          position={[
+            mirror.gx * STUD_PITCH_MM + mirrorOff.x,
+            effectiveGy * PLATE_HEIGHT_MM,
+            mirror.gz * STUD_PITCH_MM + mirrorOff.z,
+          ]}
+          rotation={[0, mirror.rotation * (Math.PI / 2), 0]}
+          userData={{ kind: 'ghost' }}
+        >
+          <mesh geometry={geometry} renderOrder={10} userData={{ kind: 'ghost' }}>
+            <meshStandardMaterial
+              color={ghostColor}
+              transparent
+              opacity={0.25}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      )}
+    </>
   );
 }

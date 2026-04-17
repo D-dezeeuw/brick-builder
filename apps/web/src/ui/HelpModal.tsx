@@ -9,6 +9,7 @@ const SECTIONS: Array<{
     rows: [
       ['Tap / L-click', 'Place the selected brick'],
       ['R-click / Erase mode', 'Remove a brick'],
+      ['Alt + click', 'Eyedropper — copy shape, colour, clear flag'],
       ['R', 'Rotate the ghost'],
       ['Q / E', 'Lower / raise target layer'],
       ['Arrow keys', 'Nudge ghost ±1 stud (resets on mouse move)'],

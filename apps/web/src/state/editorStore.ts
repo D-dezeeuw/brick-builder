@@ -11,6 +11,7 @@ import {
   type Rotation,
 } from '@brick/shared';
 import { EFFECT_DEFAULTS } from './quality';
+import { setPlacementSoundEnabled } from './placementFeedback';
 
 let idCounter = 0;
 const nextId = () => `b${(++idCounter).toString(36)}`;
@@ -52,6 +53,13 @@ type EditorState = {
    * flag — each brick persists its own `transparent` value.
    */
   transparentMode: boolean;
+  /**
+   * Symmetry axis for auto-mirrored placement. 'off' = normal, 'x' =
+   * reflect across the X=0 plane (left↔right), 'z' = reflect across
+   * Z=0 (front↔back). Purely an input mode — placed bricks don't know
+   * they came from a mirror pair.
+   */
+  mirrorAxis: 'off' | 'x' | 'z';
   rotation: Rotation;
   mode: EditorMode;
   quality: Quality;
@@ -86,6 +94,8 @@ type EditorState = {
   pathtracerMaxSamples: number;
   /** When true, the bilateral denoise pass runs after convergence. */
   denoiseEnabled: boolean;
+  /** When true, placing a brick plays the synthesized click. */
+  placementSoundEnabled: boolean;
 
   // --- Multiplayer / room state ---
   /** Current room id when connected; null for solo editing. */
@@ -129,6 +139,7 @@ type EditorState = {
   setShape: (shape: BrickShape) => void;
   setColor: (color: BrickColor) => void;
   setTransparentMode: (b: boolean) => void;
+  setMirrorAxis: (a: EditorState['mirrorAxis']) => void;
   setMode: (mode: EditorMode) => void;
   setQuality: (q: Quality) => void;
   setLightIntensity: (n: number) => void;
@@ -142,6 +153,7 @@ type EditorState = {
   setPathtracerSamples: (n: number) => void;
   setPathtracerMaxSamples: (n: number) => void;
   setDenoiseEnabled: (b: boolean) => void;
+  setPlacementSoundEnabled: (b: boolean) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
   setRoomPasswordState: (hasPassword: boolean, passwordSetAt: string | null) => void;
@@ -179,6 +191,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedShape: 'brick_2x4',
   selectedColor: 'red',
   transparentMode: false,
+  mirrorAxis: 'off',
   rotation: 0,
   mode: 'build',
   quality: 'high',
@@ -197,6 +210,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pathtracerSamples: 0,
   pathtracerMaxSamples: 32,
   denoiseEnabled: true,
+  placementSoundEnabled: true,
   roomId: null,
   roomStatus: 'idle',
   roomHasPassword: false,
@@ -275,6 +289,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
   setColor: (color) => set({ selectedColor: color }),
   setTransparentMode: (b) => set({ transparentMode: b }),
+  setMirrorAxis: (a) => set({ mirrorAxis: a }),
   setMode: (mode) => set({ mode }),
   setQuality: (quality) => {
     // Quality switch re-seeds the effect toggles from the preset so Low really
@@ -300,6 +315,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setPathtracerMaxSamples: (n) =>
     set({ pathtracerMaxSamples: Math.max(1, Math.min(128, Math.round(n))) }),
   setDenoiseEnabled: (b) => set({ denoiseEnabled: b }),
+  setPlacementSoundEnabled: (b) => {
+    set({ placementSoundEnabled: b });
+    setPlacementSoundEnabled(b);
+  },
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
   setRoomPasswordState: (hasPassword, passwordSetAt) =>

@@ -32,12 +32,14 @@ export function EffectsSection() {
   const renderMode = useEditorStore((s) => s.renderMode);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const denoise = useEditorStore((s) => s.denoiseEnabled);
+  const sound = useEditorStore((s) => s.placementSoundEnabled);
   const setAo = useEditorStore((s) => s.setAoEnabled);
   const setBloom = useEditorStore((s) => s.setBloomEnabled);
   const setSmaa = useEditorStore((s) => s.setSmaaEnabled);
   const setRenderMode = useEditorStore((s) => s.setRenderMode);
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
   const setDenoise = useEditorStore((s) => s.setDenoiseEnabled);
+  const setSound = useEditorStore((s) => s.setPlacementSoundEnabled);
   const support = getPathTraceSupport();
 
   return (
@@ -87,6 +89,12 @@ export function EffectsSection() {
         hint="Bilateral smooth once samples hit the target"
         checked={denoise}
         onChange={setDenoise}
+      />
+      <Toggle
+        label="Placement sound"
+        hint="Click feedback when you drop a brick"
+        checked={sound}
+        onChange={setSound}
       />
     </div>
   );
