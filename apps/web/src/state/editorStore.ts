@@ -13,15 +13,28 @@ import {
 import { EFFECT_DEFAULTS } from './quality';
 import { setPlacementSoundEnabled } from './placementFeedback';
 
-let idCounter = 0;
-const nextId = () => `b${(++idCounter).toString(36)}`;
-const absorbId = (id: string): void => {
-  // Bump the counter so generated ids never collide with a restored one.
-  const m = /^b([0-9a-z]+)$/.exec(id);
-  if (!m) return;
-  const n = parseInt(m[1], 36);
-  if (Number.isFinite(n) && n > idCounter) idCounter = n;
-};
+/**
+ * Brick IDs: 10 random base36 chars from crypto.getRandomValues.
+ *
+ * We used to mint ids from a client-side counter (`b1, b2, b3, ...`).
+ * That worked fine for solo creations but broke the instant two
+ * clients joined the same room — both start at `b1` and collide on
+ * the server's `bricks_pkey` primary-key constraint (SQLSTATE 23505).
+ *
+ * 36^10 ≈ 3.7e15 values; at our 10k-bricks-per-creation cap the
+ * birthday collision probability is negligible. No cross-client
+ * coordination needed, existing counter-based ids remain valid
+ * strings in loaded creations (we just stop minting them).
+ */
+const ID_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
+const ID_LENGTH = 10;
+function nextId(): string {
+  const bytes = new Uint8Array(ID_LENGTH);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < ID_LENGTH; i++) out += ID_ALPHABET[bytes[i] % ID_ALPHABET.length];
+  return out;
+}
 
 type PlacementInput = Omit<Brick, 'id'>;
 
@@ -276,7 +289,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     for (const c of cells) {
       if (cellIndex.has(cellKey(c.gx, c.gy, c.gz))) return false;
     }
-    absorbId(brick.id);
     const nextBricks = new Map(bricks);
     nextBricks.set(brick.id, brick);
     const nextIndex = new Map(cellIndex);
@@ -380,7 +392,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const nextBricks = new Map<string, Brick>();
     const nextIndex = new Map<string, string>();
     for (const b of creation.bricks) {
-      absorbId(b.id);
       nextBricks.set(b.id, b);
       const cells = footprintCells(b.shape, b.gx, b.gy, b.gz, b.rotation);
       for (const c of cells) nextIndex.set(cellKey(c.gx, c.gy, c.gz), b.id);

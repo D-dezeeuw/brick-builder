@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Shadow under the stud so the brick reads as 3D at 16×16 favicon size. -->
+  <ellipse cx="32" cy="22" rx="11.5" ry="2.2" fill="#00274d" opacity="0.55"/>
+  <!-- Stud -->
+  <circle cx="32" cy="16" r="9" fill="#0055bf" stroke="#003680" stroke-width="1.2"/>
+  <!-- Stud highlight -->
+  <ellipse cx="29.5" cy="13" rx="3" ry="1.6" fill="#4d8dd9" opacity="0.8"/>
+  <!-- Brick body -->
+  <rect x="6" y="22" width="52" height="36" rx="2.5" fill="#0055bf" stroke="#003680" stroke-width="1.2"/>
+  <!-- Body highlight along the top edge -->
+  <rect x="8" y="24" width="48" height="3" rx="1.5" fill="#4d8dd9" opacity="0.55"/>
+</svg>
