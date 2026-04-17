@@ -170,3 +170,59 @@ export async function rotateAdminPassword(
   }
   return data === true;
 }
+
+/**
+ * Grant the admin's anonymous user_id membership of a password-protected
+ * room so normal RLS lets them in. Safe to call on public rooms too —
+ * the RPC is a no-op when the room has no password.
+ */
+export async function adminJoinRoom(token: string, roomId: string): Promise<boolean> {
+  const client = supabase;
+  if (!client) return false;
+  await ensureAnonymousSession();
+  const { data, error } = await client.rpc('admin_join_room', {
+    p_token: token,
+    p_room_id: roomId,
+  });
+  if (error) {
+    console.warn('[admin] join_room failed:', error);
+    return false;
+  }
+  return data === true;
+}
+
+export type AdminBrickRow = {
+  id: string;
+  room_id: string;
+  shape: string;
+  color: string;
+  gx: number;
+  gy: number;
+  gz: number;
+  rotation: number;
+  transparent: boolean;
+  created_at: string;
+};
+
+/**
+ * Fetch every brick for a room, bypassing RLS. Used by the admin panel
+ * to render thumbnails without forcing a membership join per room.
+ */
+export async function adminFetchBricks(
+  token: string,
+  roomId: string,
+): Promise<AdminBrickRow[] | null> {
+  const client = supabase;
+  if (!client) return null;
+  await ensureAnonymousSession();
+  const { data, error } = await client.rpc('admin_list_bricks', {
+    p_token: token,
+    p_room_id: roomId,
+  });
+  if (error) {
+    console.warn('[admin] list_bricks failed:', error);
+    return null;
+  }
+  if (!Array.isArray(data)) return [];
+  return data as AdminBrickRow[];
+}

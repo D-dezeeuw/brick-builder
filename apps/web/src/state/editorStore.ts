@@ -153,6 +153,14 @@ type EditorState = {
    * echoing the change back to the server.
    */
   isRemoteApplying: boolean;
+  /**
+   * Admin "observe" mode — the client is joined to a room in read-only
+   * mode. No outbound writes (brick edits, title, bounds, chat messages)
+   * ever leave the client while this is on. Set via `?observe=1` on
+   * admin navigation; UI surfaces a banner so the admin can see they're
+   * in silent mode.
+   */
+  observeMode: boolean;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
   /**
@@ -226,6 +234,7 @@ type EditorState = {
   setIdlePauseEnabled: (b: boolean) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
+  setObserveMode: (b: boolean) => void;
   setRoomPasswordState: (hasPassword: boolean, passwordSetAt: string | null) => void;
   /** Run a mutation with isRemoteApplying=true so the outbound sync wrapper skips it. */
   withRemoteApply: <T>(fn: () => T) => T;
@@ -332,6 +341,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   roomHasPassword: false,
   roomPasswordSetAt: null,
   isRemoteApplying: false,
+  observeMode: false,
   layerOffset: 0,
   placementOffset: { gx: 0, gz: 0 },
   carrying: null,
@@ -489,6 +499,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setIdlePauseEnabled: (b) => set({ idlePauseEnabled: b }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
+  setObserveMode: (b) => set({ observeMode: b }),
   setRoomPasswordState: (hasPassword, passwordSetAt) =>
     set({ roomHasPassword: hasPassword, roomPasswordSetAt: passwordSetAt }),
   withRemoteApply: (fn) => {

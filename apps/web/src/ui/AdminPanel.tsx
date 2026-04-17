@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  adminJoinRoom,
   deleteRoom,
   endAdminSession,
   listRooms,
   type AdminRoomSummary,
 } from '../multiplayer/admin';
+import { RoomThumbnail } from './RoomThumbnail';
 
 type DeletePrompt = { roomId: string; title: string } | null;
 
@@ -132,7 +134,12 @@ export function AdminPanel({
       ) : (
         <ul className="admin-room-list">
           {filtered.map((room) => (
-            <RoomCard key={room.id} room={room} onDelete={() => setPrompt({ roomId: room.id, title: room.title })} />
+            <RoomCard
+              key={room.id}
+              room={room}
+              token={token}
+              onDelete={() => setPrompt({ roomId: room.id, title: room.title })}
+            />
           ))}
         </ul>
       )}
@@ -149,23 +156,44 @@ export function AdminPanel({
   );
 }
 
-function RoomCard({ room, onDelete }: { room: AdminRoomSummary; onDelete: () => void }) {
-  const roomUrl = useMemo(() => buildRoomUrl(room.id, false), [room.id]);
-  const takeOverUrl = useMemo(() => buildRoomUrl(room.id, true), [room.id]);
+function RoomCard({
+  room,
+  token,
+  onDelete,
+}: {
+  room: AdminRoomSummary;
+  token: string;
+  onDelete: () => void;
+}) {
+  const [busy, setBusy] = useState<'observe' | 'takeover' | null>(null);
+
+  // Both actions first grant the admin's anonymous user membership of
+  // the room (bypassing any password), then navigate. Observe adds
+  // `observe=1` so the editor mounts in silent read-only mode; Take
+  // over just joins normally.
+  const go = async (mode: 'observe' | 'takeover') => {
+    if (busy) return;
+    setBusy(mode);
+    const ok = await adminJoinRoom(token, room.id);
+    if (!ok) {
+      setBusy(null);
+      alert('Could not grant membership. Your session may have expired.');
+      return;
+    }
+    const url = buildRoomUrl(room.id, mode === 'observe');
+    window.location.href = url;
+  };
 
   return (
     <li className="admin-room">
       <div className="admin-room__thumb" aria-hidden="true">
-        {/* Placeholder thumbnail: colored chip derived from the room id so each
-            room has a recognisable tile. Real thumbnails land in a follow-up. */}
-        <div
-          className="admin-room__thumb-swatch"
-          style={{ background: deriveThumbColor(room.id) }}
-        >
-          <span className="admin-room__thumb-count">
-            {room.brickCount.toLocaleString()}
-          </span>
-        </div>
+        <RoomThumbnail
+          token={token}
+          roomId={room.id}
+          updatedAt={room.updatedAt}
+          brickCount={room.brickCount}
+          fallbackColor={deriveThumbColor(room.id)}
+        />
       </div>
       <div className="admin-room__body">
         <div className="admin-room__title-row">
@@ -185,16 +213,29 @@ function RoomCard({ room, onDelete }: { room: AdminRoomSummary; onDelete: () => 
         </div>
       </div>
       <div className="admin-room__actions">
-        <a className="admin-btn admin-btn--ghost" href={roomUrl}>
-          Observe
-        </a>
-        <a className="admin-btn admin-btn--ghost" href={takeOverUrl}>
-          Take over
-        </a>
+        <button
+          type="button"
+          className="admin-btn admin-btn--ghost"
+          onClick={() => void go('observe')}
+          disabled={busy !== null}
+          title="Join silently — no writes leave the client"
+        >
+          {busy === 'observe' ? 'Joining…' : 'Observe'}
+        </button>
+        <button
+          type="button"
+          className="admin-btn admin-btn--ghost"
+          onClick={() => void go('takeover')}
+          disabled={busy !== null}
+          title="Join as an editor, overriding any password"
+        >
+          {busy === 'takeover' ? 'Joining…' : 'Take over'}
+        </button>
         <button
           type="button"
           className="admin-btn admin-btn--danger"
           onClick={onDelete}
+          disabled={busy !== null}
           aria-label={`Delete room ${room.title}`}
         >
           Delete
@@ -251,11 +292,13 @@ function deriveThumbColor(id: string): string {
   return `hsl(${hue}, 55%, 42%)`;
 }
 
-function buildRoomUrl(roomId: string, _takeOver: boolean): string {
+function buildRoomUrl(roomId: string, observe: boolean): string {
   if (typeof location === 'undefined') return `?r=${encodeURIComponent(roomId)}`;
   const url = new URL(location.href);
   url.searchParams.delete('admin');
   url.searchParams.set('r', roomId);
+  if (observe) url.searchParams.set('observe', '1');
+  else url.searchParams.delete('observe');
   return url.toString();
 }
 

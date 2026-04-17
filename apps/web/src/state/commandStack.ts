@@ -16,6 +16,11 @@ function isLockedByLayer(brick: Brick): boolean {
   return true;
 }
 
+/** Admin observe = silent read-only. Every mutation entry point bails early. */
+function isObserving(): boolean {
+  return useEditorStore.getState().observeMode;
+}
+
 type Command = {
   do: () => void;
   undo: () => void;
@@ -67,6 +72,7 @@ type PlacementInput = Omit<Brick, 'id'>;
  * restoreBrick so the id stays stable.
  */
 export function placeBrick(input: PlacementInput): string | null {
+  if (isObserving()) return null;
   const id = useEditorStore.getState().addBrick(input);
   if (!id) return null;
   const snapshot = useEditorStore.getState().bricks.get(id);
@@ -109,6 +115,7 @@ export function loadCreationWithHistoryReset(creation: Creation): void {
 }
 
 export function eraseBrick(id: string): boolean {
+  if (isObserving()) return false;
   const snapshot = useEditorStore.getState().bricks.get(id);
   if (!snapshot) return false;
   if (isLockedByLayer(snapshot)) return false;
@@ -136,6 +143,7 @@ export function eraseBrick(id: string): boolean {
  * cancelled move leaves the history untouched.
  */
 export function pickUpBrick(id: string): boolean {
+  if (isObserving()) return false;
   const s = useEditorStore.getState();
   const snapshot = s.bricks.get(id);
   if (!snapshot) return false;
@@ -174,6 +182,7 @@ type DropInput = {
  * target is blocked.
  */
 export function dropCarriedBrick(input: DropInput): boolean {
+  if (isObserving()) return false;
   const s = useEditorStore.getState();
   const carried = s.carrying;
   if (!carried) return false;

@@ -37,6 +37,13 @@ export function useRoomWrites(): void {
         prev = snapshot();
         return;
       }
+      // Admin observe: silent read-only client. Keep the baseline fresh
+      // so if the user later flips out of observe mode, the first push
+      // doesn't replay every local change accumulated meanwhile.
+      if (state.observeMode) {
+        prev = snapshot();
+        return;
+      }
       const roomId = state.roomId;
       if (!roomId) {
         // Not connected — keep the baseline fresh so a later room-join

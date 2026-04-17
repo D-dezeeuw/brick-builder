@@ -9,6 +9,7 @@ import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
 import { ChatPanel } from './ui/ChatPanel';
+import { ObserveBanner } from './ui/ObserveBanner';
 import { PasswordPromptModal } from './ui/PasswordPromptModal';
 import { SettingsModal } from './ui/SettingsModal';
 import { Toasts } from './ui/Toasts';
@@ -78,6 +79,7 @@ export function App() {
         <Hotbar />
         <ImportDropZone />
       </main>
+      <ObserveBanner />
       <Toasts />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

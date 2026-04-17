@@ -109,7 +109,11 @@ export async function sendChatMessage(body: string): Promise<boolean> {
   if (trimmed.length === 0 || trimmed.length > 500) return false;
   const client = supabase;
   if (!client) return false;
-  const roomId = useEditorStore.getState().roomId;
+  const state = useEditorStore.getState();
+  // Admin observe mode is silent — swallow chat sends so nothing is
+  // published to the room.
+  if (state.observeMode) return false;
+  const roomId = state.roomId;
   if (!roomId) return false;
   const userId = await ensureAnonymousSession();
   if (!userId) return false;
