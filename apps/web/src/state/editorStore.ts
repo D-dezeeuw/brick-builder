@@ -183,6 +183,13 @@ type EditorState = {
   /** Saved camera viewpoints — persisted with the creation JSON. */
   views: SavedView[];
 
+  /**
+   * Multi-selection of brick ids. Purely a UI concept — not serialised,
+   * not synced. A selection persists through plain carries (the picked-up
+   * brick is scrubbed but the rest of the selection stays).
+   */
+  selectedIds: Set<string>;
+
   addBrick: (input: PlacementInput) => string | null;
   /** Re-insert a brick with its original id (undo/redo path). Returns true on success. */
   restoreBrick: (brick: Brick) => boolean;
@@ -252,6 +259,14 @@ type EditorState = {
   renameView: (id: string, name: string) => void;
   deleteView: (id: string) => void;
 
+  // --- Multi-selection ---
+  toggleBrickSelected: (id: string) => void;
+  clearSelection: () => void;
+  /** Add every brick currently on a given layer to the selection. */
+  selectAllOnLayer: (layerId: string) => void;
+  /** Move every selected brick to a given layer. Locked target → no-op. */
+  moveSelectionToLayer: (layerId: string) => void;
+
   /** Flatten current scene to a serialisable Creation (for save/share/export). */
   serializeCreation: () => Creation;
   /** Replace the entire scene with a loaded Creation. Clears layer offset. */
@@ -318,6 +333,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   layers: [DEFAULT_LAYER],
   activeLayerId: DEFAULT_LAYER_ID,
   views: [],
+  selectedIds: new Set<string>(),
 
   canPlaceAt: (shape, gx, gy, gz, rotation) => {
     if (gy < 0) return false;
@@ -372,7 +388,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeBrickById: (id) => {
-    const { bricks, cellIndex } = get();
+    const { bricks, cellIndex, selectedIds } = get();
     const brick = bricks.get(id);
     if (!brick) return false;
     const cells = footprintCells(brick.shape, brick.gx, brick.gy, brick.gz, brick.rotation);
@@ -380,7 +396,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     nextBricks.delete(id);
     const nextIndex = new Map(cellIndex);
     for (const c of cells) nextIndex.delete(cellKey(c.gx, c.gy, c.gz));
-    set({ bricks: nextBricks, cellIndex: nextIndex });
+    // Scrub the removed id from the multi-selection so no stale ids
+    // pile up across erase / pick-up cycles.
+    let nextSelected = selectedIds;
+    if (selectedIds.has(id)) {
+      nextSelected = new Set(selectedIds);
+      nextSelected.delete(id);
+    }
+    set({ bricks: nextBricks, cellIndex: nextIndex, selectedIds: nextSelected });
     return true;
   },
 
@@ -548,6 +571,52 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   deleteView: (id) => set((s) => ({ views: s.views.filter((v) => v.id !== id) })),
 
+  toggleBrickSelected: (id) => {
+    set((s) => {
+      if (!s.bricks.has(id)) return s;
+      const next = new Set(s.selectedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return { selectedIds: next };
+    });
+  },
+  clearSelection: () =>
+    set((s) => (s.selectedIds.size === 0 ? s : { selectedIds: new Set() })),
+  selectAllOnLayer: (layerId) => {
+    set((s) => {
+      const next = new Set(s.selectedIds);
+      // A brick with no layerId belongs to the default layer for
+      // organisational purposes. Mirror that here so "select all on
+      // Default" works for legacy bricks.
+      const isOnLayer = (b: Brick) =>
+        (b.layerId ?? DEFAULT_LAYER_ID) === layerId;
+      for (const b of s.bricks.values()) if (isOnLayer(b)) next.add(b.id);
+      return { selectedIds: next };
+    });
+  },
+  moveSelectionToLayer: (layerId) => {
+    set((s) => {
+      const target = s.layers.find((l) => l.id === layerId);
+      if (!target || target.locked) {
+        if (target?.locked) {
+          useToastStore.getState().show(`Layer "${target.name}" is locked`, 'error');
+        }
+        return s;
+      }
+      if (s.selectedIds.size === 0) return s;
+      const nextBricks = new Map(s.bricks);
+      let mutated = false;
+      for (const id of s.selectedIds) {
+        const b = nextBricks.get(id);
+        if (!b) continue;
+        if (b.layerId === layerId) continue;
+        nextBricks.set(id, { ...b, layerId });
+        mutated = true;
+      }
+      return mutated ? { bricks: nextBricks } : s;
+    });
+  },
+
   serializeCreation: () => {
     const { title, bricks, baseplateBounds, layers, views } = get();
     const out: Creation = {
@@ -597,6 +666,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: finalLayers,
       activeLayerId: finalLayers[0]?.id ?? DEFAULT_LAYER_ID,
       views: creation.views ? [...creation.views] : [],
+      selectedIds: new Set(),
     });
   },
 

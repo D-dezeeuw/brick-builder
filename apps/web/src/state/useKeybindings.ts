@@ -46,12 +46,22 @@ export function useKeybindings() {
       // Plain-key shortcuts — ignore when a modifier is held.
       if (mod || e.altKey) return;
 
-      // Esc cancels an in-flight carry (brick returns to its original
-      // cell, no history step consumed).
-      if (e.key === 'Escape' && useEditorStore.getState().carrying) {
-        cancelCarry();
-        e.preventDefault();
-        return;
+      // Esc has layered semantics: if the user is carrying a brick
+      // that's the primary cancel. Otherwise, a non-empty multi-
+      // selection gets cleared — the user is almost always trying to
+      // escape the most recent ephemeral state.
+      if (e.key === 'Escape') {
+        const s = useEditorStore.getState();
+        if (s.carrying) {
+          cancelCarry();
+          e.preventDefault();
+          return;
+        }
+        if (s.selectedIds.size > 0) {
+          s.clearSelection();
+          e.preventDefault();
+          return;
+        }
       }
 
       const store = useEditorStore.getState();

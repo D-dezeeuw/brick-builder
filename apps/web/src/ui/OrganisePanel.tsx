@@ -15,9 +15,74 @@ import {
 export function OrganisePanel() {
   return (
     <div className="organise-panel">
+      <SelectionSection />
       <LayersSection />
       <ViewsSection />
     </div>
+  );
+}
+
+/**
+ * Only renders when a multi-selection exists. Shows the count and a
+ * "Move to…" layer chooser. Selection is populated via Hand-mode
+ * shift-click in the scene.
+ */
+function SelectionSection() {
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const layers = useEditorStore((s) => s.layers);
+  const moveSelectionToLayer = useEditorStore((s) => s.moveSelectionToLayer);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
+
+  if (selectedIds.size === 0) return null;
+
+  const count = selectedIds.size;
+
+  return (
+    <section className="organise-section organise-selection">
+      <header className="organise-section__header">
+        <h2 className="sidebar-heading">Selection</h2>
+        <button
+          type="button"
+          className="organise-section__add"
+          onClick={clearSelection}
+          title="Clear selection (Esc)"
+        >
+          Clear
+        </button>
+      </header>
+      <div className="organise-selection__body">
+        <div className="organise-selection__count">
+          <strong>{count}</strong> brick{count === 1 ? '' : 's'} selected
+        </div>
+        <label className="organise-selection__move">
+          <span>Move to</span>
+          <select
+            className="organise-selection__select"
+            value=""
+            onChange={(e) => {
+              const id = e.currentTarget.value;
+              if (!id) return;
+              moveSelectionToLayer(id);
+              // Reset the select so picking the same layer twice works.
+              e.currentTarget.value = '';
+            }}
+          >
+            <option value="" disabled>
+              Choose layer…
+            </option>
+            {layers.map((l) => (
+              <option key={l.id} value={l.id} disabled={l.locked}>
+                {l.name}
+                {l.locked ? ' (locked)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="organise-hint">
+        Shift-click in Hand mode to add/remove. Esc clears.
+      </p>
+    </section>
   );
 }
 
@@ -83,6 +148,7 @@ function LayerRow({ layer, active, count }: { layer: Layer; active: boolean; cou
   const setActiveLayer = useEditorStore((s) => s.setActiveLayer);
   const renameLayer = useEditorStore((s) => s.renameLayer);
   const deleteLayer = useEditorStore((s) => s.deleteLayer);
+  const selectAllOnLayer = useEditorStore((s) => s.selectAllOnLayer);
 
   const isDefault = layer.id === 'default';
 
@@ -120,9 +186,16 @@ function LayerRow({ layer, active, count }: { layer: Layer; active: boolean; cou
         onCommit={(next) => renameLayer(layer.id, next)}
         ariaLabel={`Rename layer ${layer.name}`}
       />
-      <span className="organise-row__count" title={`${count} brick${count === 1 ? '' : 's'}`}>
+      <button
+        type="button"
+        className="organise-row__count organise-row__count--btn"
+        onClick={() => selectAllOnLayer(layer.id)}
+        title={`Select all ${count} brick${count === 1 ? '' : 's'} on this layer`}
+        aria-label={`Select all bricks on ${layer.name}`}
+        disabled={count === 0}
+      >
         {count}
-      </span>
+      </button>
       <button
         type="button"
         className="organise-row__delete"

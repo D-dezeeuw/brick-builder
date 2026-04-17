@@ -141,6 +141,9 @@ function BuildTab() {
           <kbd>Q</kbd>/<kbd>E</kbd> layer · <kbd>1</kbd>–<kbd>9</kbd> recent
         </p>
         <p className="hint">
+          <kbd>Shift</kbd>+click multi-select (Hand mode)
+        </p>
+        <p className="hint">
           <kbd>?</kbd> help · <kbd>⌘/Ctrl+Z</kbd> undo
         </p>
       </div>

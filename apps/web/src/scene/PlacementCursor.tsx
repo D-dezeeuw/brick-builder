@@ -61,6 +61,9 @@ export function PlacementCursor() {
     // properties instead of placing. Captured on down so briefly
     // releasing Alt between down and up doesn't swallow the pick.
     let downAlt = false;
+    // Shift-click in Hand mode toggles a brick in the multi-selection.
+    // Captured on down so modifier changes mid-drag don't skew intent.
+    let downShift = false;
 
     const computeHover = (clientX: number, clientY: number): HoverTarget | null => {
       const rect = dom.getBoundingClientRect();
@@ -145,6 +148,7 @@ export function PlacementCursor() {
       downBtn = e.button;
       downType = e.pointerType;
       downAlt = e.altKey;
+      downShift = e.shiftKey;
       // Touch has no hover — update ghost immediately on touchdown so the
       // user sees where their tap landed.
       if (e.pointerType !== 'mouse') updateHoverFromEvent(e);
@@ -159,10 +163,12 @@ export function PlacementCursor() {
       const btn = downBtn;
       const type = downType;
       const wasAlt = downAlt;
+      const wasShift = downShift;
       activePointerId = null;
       cancelled = false;
       downBtn = -1;
       downAlt = false;
+      downShift = false;
 
       if (wasCancelled) return;
 
@@ -204,12 +210,18 @@ export function PlacementCursor() {
       }
 
       if (state.mode === 'select') {
-        // "Grab" behaviour — click a brick to pick it up. The brick
-        // is removed and the editor flips into Build mode carrying
-        // its shape/colour/rotation/transparent flag. Next click
-        // drops the copy at the cursor. Click on empty space does
-        // nothing.
-        if (h.underBrickId) pickUpBrick(h.underBrickId);
+        // Shift-click: toggle brick in the multi-selection. Plain click
+        // on a brick = single-brick pickup (original Hand-mode flow).
+        // Plain click on empty space = clear selection.
+        if (wasShift) {
+          if (h.underBrickId) state.toggleBrickSelected(h.underBrickId);
+          return;
+        }
+        if (!h.underBrickId) {
+          state.clearSelection();
+          return;
+        }
+        pickUpBrick(h.underBrickId);
         return;
       }
 

@@ -9,6 +9,7 @@ import { CaptureBridge } from './CaptureBridge';
 import { IdleFreeze } from './IdleFreeze';
 import { PlacementCursor } from './PlacementCursor';
 import { ResourceBoundary } from './ResourceBoundary';
+import { SelectionOverlay } from './SelectionOverlay';
 import { InstancedBricks } from '../bricks/InstancedBricks';
 import { useEditorStore } from '../state/editorStore';
 import { useIdlePause } from '../state/useIdlePause';
@@ -205,6 +206,7 @@ export function Scene() {
         <>
           {sceneContent}
           <PlacementCursor />
+          <SelectionOverlay />
           {anyPostFX && (
             <Suspense fallback={null}>
               <PostFX ao={aoEnabled} bloom={bloomEnabled} smaa={smaaEnabled} />
