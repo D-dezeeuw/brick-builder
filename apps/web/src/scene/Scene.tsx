@@ -5,6 +5,7 @@ import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, TOUCH } from 'th
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { CaptureBridge } from './CaptureBridge';
+import { IdleFreeze } from './IdleFreeze';
 import { PlacementCursor } from './PlacementCursor';
 import { ResourceBoundary } from './ResourceBoundary';
 import { InstancedBricks } from '../bricks/InstancedBricks';
@@ -197,6 +198,9 @@ export function Scene() {
               <PostFX ao={aoEnabled} bloom={bloomEnabled} smaa={smaaEnabled} />
             </Suspense>
           )}
+          {/* Grayscale freeze when going idle. Gated on rasterized mode
+              because the path tracer already owns its own pause state. */}
+          <IdleFreeze active={active} />
         </>
       )}
 
