@@ -1,7 +1,15 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { AdminApp } from './ui/AdminApp';
 import './styles.css';
+
+/** Admin panel lives at `?admin=1` — same origin, but without the
+ *  editor mounted. A path-based `/admin` would require the GitHub Pages
+ *  SPA-fallback dance (404.html copy), a query flag avoids that entirely
+ *  and matches the existing `?r=<room>` routing convention. */
+const isAdminRoute =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).get('admin') === '1';
 
 // three-mesh-bvh (pulled in by three-gpu-pathtracer 0.0.23) spams a
 // deprecation warning about `maxLeafTris` every time a BVH is built.
@@ -39,7 +47,5 @@ const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');
 
 createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  <StrictMode>{isAdminRoute ? <AdminApp /> : <App />}</StrictMode>,
 );
