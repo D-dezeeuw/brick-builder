@@ -1353,13 +1353,66 @@ body.space-panning .canvas-host > canvas:active {
 }
 
 .brick-browser__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
+  padding: 5px 6px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-family: inherit;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--fg-muted);
-  opacity: 0.75;
+  opacity: 0.85;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.08s ease,
+    color 0.08s ease,
+    border-color 0.08s ease,
+    opacity 0.08s ease;
+}
+
+.brick-browser__heading:hover {
+  background: var(--bg);
+  color: var(--fg);
+  opacity: 1;
+}
+
+.brick-browser__heading--open {
+  color: var(--fg);
+  opacity: 1;
+}
+
+.brick-browser__heading--has-selection {
+  border-color: var(--accent);
+}
+
+.brick-browser__heading-label {
+  flex: 1 1 auto;
+}
+
+.brick-browser__heading-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  opacity: 0.65;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.brick-browser__chevron {
+  flex: 0 0 auto;
+  transition: transform 0.12s ease;
+  opacity: 0.8;
+}
+
+.brick-browser__chevron--open {
+  transform: rotate(90deg);
 }
 
 .brick-browser__grid {
