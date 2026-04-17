@@ -56,6 +56,14 @@ export {
 export { BRICK_COLOR_HEX, BRICK_COLOR_ORDER, type BrickColor } from './colors';
 
 export {
+  SHAPE_TO_PART,
+  BL_COLOR_ID,
+  BL_COLOR_ID_TRANS,
+  bricklinkUrl,
+  type PartInfo,
+} from './partMapping';
+
+export {
   CURRENT_SCHEMA_VERSION,
   MAX_BRICKS_PER_CREATION,
   MAX_TITLE_LENGTH,

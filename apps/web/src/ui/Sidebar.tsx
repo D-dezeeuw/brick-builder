@@ -1,11 +1,38 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { BrickColor } from '@brick/shared';
 import { useEditorStore, type EditorMode } from '../state/editorStore';
 import { cancelCarry } from '../state/commandStack';
 import { BRICK_COLOR_HEX, BRICK_COLOR_ORDER } from '../state/constants';
 import { BrickBrowser } from './BrickBrowser';
+import { PartsPanel } from './PartsPanel';
+
+type SidebarTab = 'build' | 'parts';
 
 export function Sidebar() {
+  const [tab, setTab] = useState<SidebarTab>('build');
+
+  return (
+    <div className="sidebar-content">
+      <div className="sidebar-tabs" role="tablist" aria-label="Sidebar section">
+        <SidebarTabButton
+          label="Build"
+          value="build"
+          active={tab === 'build'}
+          onSelect={setTab}
+        />
+        <SidebarTabButton
+          label="Parts"
+          value="parts"
+          active={tab === 'parts'}
+          onSelect={setTab}
+        />
+      </div>
+      {tab === 'build' ? <BuildTab /> : <PartsPanel />}
+    </div>
+  );
+}
+
+function BuildTab() {
   const selected = useEditorStore((s) => s.selectedColor);
   const setColor = useEditorStore((s) => s.setColor);
   const mode = useEditorStore((s) => s.mode);
@@ -24,7 +51,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="sidebar-content">
+    <>
       <div className="sidebar-section">
         <h2 className="sidebar-heading">Mode</h2>
         <div className="mode-row" role="tablist" aria-label="Editor mode">
@@ -110,7 +137,31 @@ export function Sidebar() {
           <kbd>?</kbd> help · <kbd>⌘/Ctrl+Z</kbd> undo
         </p>
       </div>
-    </div>
+    </>
+  );
+}
+
+function SidebarTabButton({
+  label,
+  value,
+  active,
+  onSelect,
+}: {
+  label: string;
+  value: SidebarTab;
+  active: boolean;
+  onSelect: (v: SidebarTab) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      className={`sidebar-tab${active ? ' sidebar-tab--active' : ''}`}
+      onClick={() => onSelect(value)}
+    >
+      {label}
+    </button>
   );
 }
 

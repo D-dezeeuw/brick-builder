@@ -1,4 +1,4 @@
-import { SHAPE_CATALOG, type BrickShape } from './catalog';
+import { LEGACY_SHAPE_MAP, SHAPE_CATALOG, type BrickShape } from './catalog';
 import type { BaseplateBounds, Brick, Rotation } from './index';
 import { BRICK_COLOR_HEX, type BrickColor } from './colors';
 
@@ -88,6 +88,10 @@ function isBaseplateBounds(v: unknown): v is BaseplateBounds {
  * Deliberately strict — we accept input from URLs, clipboards, dropped
  * files, and realtime peers. Corrupt or hostile payloads should fail fast
  * and leave the current scene untouched.
+ *
+ * Bricks whose shape was removed from the catalog get migrated via
+ * LEGACY_SHAPE_MAP: a substitute shape keeps the brick; `null` drops it
+ * silently rather than rejecting the whole creation.
  */
 export function validateCreation(raw: unknown): Creation | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -97,16 +101,35 @@ export function validateCreation(raw: unknown): Creation | null {
   if (typeof r.createdAt !== 'number' || !Number.isFinite(r.createdAt)) return null;
   if (!Array.isArray(r.bricks) || r.bricks.length > MAX_BRICKS_PER_CREATION) return null;
   if (!isBaseplateBounds(r.baseplateBounds)) return null;
-  for (const b of r.bricks) {
+  const migrated: Brick[] = [];
+  for (const raw of r.bricks) {
+    const b = migrateLegacyBrick(raw);
+    if (b === 'drop') continue;
     if (!isBrick(b)) return null;
+    migrated.push(b);
   }
   return {
     version: r.version,
     title: r.title,
     createdAt: r.createdAt,
-    bricks: r.bricks as Brick[],
+    bricks: migrated,
     baseplateBounds: r.baseplateBounds,
   };
+}
+
+/**
+ * If a brick's shape is in LEGACY_SHAPE_MAP, rewrite it (or signal drop).
+ * Returns the unchanged input for current shapes — they hit `isBrick` next
+ * and reject if malformed.
+ */
+function migrateLegacyBrick(raw: unknown): unknown | 'drop' {
+  if (!raw || typeof raw !== 'object') return raw;
+  const shape = (raw as Record<string, unknown>).shape;
+  if (typeof shape !== 'string') return raw;
+  if (!(shape in LEGACY_SHAPE_MAP)) return raw;
+  const replacement = LEGACY_SHAPE_MAP[shape];
+  if (replacement === null) return 'drop';
+  return { ...(raw as Record<string, unknown>), shape: replacement };
 }
 
 /** Clamp/sanitize a peer-supplied title to the max length. */
