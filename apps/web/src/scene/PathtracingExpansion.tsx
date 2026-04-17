@@ -62,12 +62,14 @@ export function PathtracingExpansion() {
       const im = obj as InstancedMesh;
       if (!im.isInstancedMesh || im.count === 0 || !im.parent) return;
 
-      // Reach through to the realtime material to detect whether this
-      // bucket is the clear-plastic variant. InstancedBricks routes
-      // transparent bricks through MeshPhysicalMaterial with
-      // transmission > 0, so that flag is the most reliable signal.
+      // Realtime materials tagged with `userData.clearBrick === true` by
+      // createBrickMaterial are the clear-plastic buckets. We used to
+      // sniff `material.transmission > 0`, but the realtime variant now
+      // avoids transmission entirely (it conflicts with the EffectComposer
+      // during MSAA-resolve blits), so the explicit tag is the only
+      // reliable signal between realtime and PT.
       const firstMat = Array.isArray(im.material) ? im.material[0] : im.material;
-      const transparent = (firstMat as MeshPhysicalMaterial).transmission > 0;
+      const transparent = firstMat?.userData?.clearBrick === true;
 
       const ptMaterial = getPtMaterial(
         im.material,

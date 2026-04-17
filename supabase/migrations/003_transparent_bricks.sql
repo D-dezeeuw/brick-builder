@@ -9,3 +9,10 @@
 
 alter table public.bricks
   add column if not exists transparent boolean not null default false;
+
+-- Nudge PostgREST to refresh its schema cache immediately so the new
+-- column is visible to the REST API. Without this the client hits
+-- PGRST204 "Could not find the 'transparent' column of 'bricks' in the
+-- schema cache" until the cache's normal poll cycle catches up. Safe to
+-- re-run — it's a LISTEN/NOTIFY channel.
+notify pgrst, 'reload schema';

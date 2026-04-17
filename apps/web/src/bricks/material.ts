@@ -93,27 +93,30 @@ export function createBrickMaterial(
 ): MeshStandardMaterial {
   const color = new Color(colorHex);
 
-  // Clear-plastic variant: transmissive tinted glass, independent of
-  // the reflectivity slider (a glossy vs matte clear brick both have
-  // roughness near zero or the transmission scatters noticeably).
-  // Quality still matters — MeshPhysicalMaterial is mandatory for
-  // transmission, which puts this past Low-quality budgets. Low falls
-  // back to a plain alpha-blended MeshStandardMaterial.
+  // Clear-plastic variant (realtime). We deliberately avoid
+  // `transmission > 0` here: three.js's transmission path allocates a
+  // dedicated render target whose depth/stencil attachments collide
+  // with the EffectComposer's ping-pong buffers during MSAA-resolve
+  // blits, surfacing as the recurring
+  //   GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth
+  //   stencil attachments cannot be the same image.
+  // The path-traced clones (PathtracingExpansion) do still use full
+  // transmission + ior + attenuation — render mode doesn't run the
+  // rasterizer's post-FX, so the conflict doesn't apply there. Net
+  // result: realtime is plain alpha-blended glass, render mode gets
+  // the full physically-based refraction.
   if (transparent) {
     if (quality.useClearcoat) {
       const material = new MeshPhysicalMaterial({
         color,
         roughness: 0.05,
         metalness: 0,
-        transmission: 1,
-        ior: 1.48, // ABS plastic
-        thickness: 4,
         clearcoat: 1,
         clearcoatRoughness: 0.03,
         transparent: true,
-        attenuationDistance: 80,
-        attenuationColor: color,
+        opacity: 0.5,
       });
+      material.userData.clearBrick = true;
       const cacheTag = 'brick-clear-phys';
       material.customProgramCacheKey = () => cacheTag;
       return material;
@@ -125,6 +128,7 @@ export function createBrickMaterial(
       transparent: true,
       opacity: 0.55,
     });
+    material.userData.clearBrick = true;
     const cacheTag = 'brick-clear-std';
     material.customProgramCacheKey = () => cacheTag;
     return material;
