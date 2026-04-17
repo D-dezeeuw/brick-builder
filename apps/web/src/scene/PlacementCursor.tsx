@@ -188,6 +188,7 @@ export function PlacementCursor() {
         gy: h.gy + state.layerOffset,
         gz: h.gz + state.placementOffset.gz,
         rotation: state.rotation,
+        transparent: state.transparentMode,
       });
       state.resetPlacementOffset();
     };

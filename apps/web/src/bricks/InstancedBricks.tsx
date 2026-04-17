@@ -19,8 +19,8 @@ import { createBrickMaterial } from './material';
 const MIN_BUCKET_CAPACITY = 256;
 const JITTER_AMPLITUDE = 0.04; // ±2% per channel
 
-function bucketKey(shape: BrickShape, color: BrickColor): string {
-  return `${shape}|${color}`;
+function bucketKey(shape: BrickShape, color: BrickColor, transparent: boolean): string {
+  return `${shape}|${color}|${transparent ? 't' : 's'}`;
 }
 
 function capacityFor(n: number): number {
@@ -85,12 +85,16 @@ export function InstancedBricks() {
   const bricks = useEditorStore((s) => s.bricks);
 
   const buckets = useMemo(() => {
-    const m = new Map<string, { shape: BrickShape; color: BrickColor; items: Brick[] }>();
+    const m = new Map<
+      string,
+      { shape: BrickShape; color: BrickColor; transparent: boolean; items: Brick[] }
+    >();
     for (const brick of bricks.values()) {
-      const key = bucketKey(brick.shape, brick.color);
+      const transparent = brick.transparent === true;
+      const key = bucketKey(brick.shape, brick.color, transparent);
       let entry = m.get(key);
       if (!entry) {
-        entry = { shape: brick.shape, color: brick.color, items: [] };
+        entry = { shape: brick.shape, color: brick.color, transparent, items: [] };
         m.set(key, entry);
       }
       entry.items.push(brick);
@@ -102,9 +106,10 @@ export function InstancedBricks() {
     <>
       {buckets.map((b) => (
         <BrickBucket
-          key={bucketKey(b.shape, b.color)}
+          key={bucketKey(b.shape, b.color, b.transparent)}
           shape={b.shape}
           color={b.color}
+          transparent={b.transparent}
           items={b.items}
         />
       ))}
@@ -115,16 +120,23 @@ export function InstancedBricks() {
 type BucketProps = {
   shape: BrickShape;
   color: BrickColor;
+  transparent: boolean;
   items: Brick[];
 };
 
-function BrickBucket({ shape, color, items }: BucketProps) {
+function BrickBucket({ shape, color, transparent, items }: BucketProps) {
   const quality = useEditorStore((s) => s.quality);
   const reflectivity = useEditorStore((s) => s.brickReflectivity);
   const geometry = useMemo(() => getGeometry(shape), [shape]);
   const material = useMemo(
-    () => createBrickMaterial(BRICK_COLOR_HEX[color], QUALITY_CONFIGS[quality], reflectivity),
-    [color, quality, reflectivity],
+    () =>
+      createBrickMaterial(
+        BRICK_COLOR_HEX[color],
+        QUALITY_CONFIGS[quality],
+        reflectivity,
+        transparent,
+      ),
+    [color, quality, reflectivity, transparent],
   );
   const capacity = capacityFor(items.length);
 

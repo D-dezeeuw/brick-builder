@@ -33,7 +33,15 @@ export const worldToGridZ = (z: number): number => Math.round(z / STUD_PITCH_MM)
 
 // ---------- Public brick model ----------
 
-export type { RectDef, RoundDef, SlopeDef, CurveDef, ShapeDef, Footprint } from './shapeDef';
+export type {
+  RectDef,
+  RoundDef,
+  SlopeDef,
+  CurveDef,
+  WindowDef,
+  ShapeDef,
+  Footprint,
+} from './shapeDef';
 export { footprintOf } from './shapeDef';
 
 export {
@@ -90,6 +98,12 @@ export type Brick = {
   /** Layer index in plate heights (0 = sitting on baseplate top). */
   gy: number;
   rotation: Rotation;
+  /**
+   * Clear-plastic modifier. When true the brick renders as a
+   * transmissive tinted variant of its color. Optional for back-
+   * compat with creations saved before this existed.
+   */
+  transparent?: boolean;
 };
 
 /** Cell key for collision lookups. */

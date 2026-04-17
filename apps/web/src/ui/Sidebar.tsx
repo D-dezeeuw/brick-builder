@@ -8,6 +8,8 @@ export function Sidebar() {
   const setColor = useEditorStore((s) => s.setColor);
   const mode = useEditorStore((s) => s.mode);
   const setMode = useEditorStore((s) => s.setMode);
+  const transparentMode = useEditorStore((s) => s.transparentMode);
+  const setTransparentMode = useEditorStore((s) => s.setTransparentMode);
 
   return (
     <div className="sidebar-content">
@@ -28,9 +30,21 @@ export function Sidebar() {
               color={color}
               active={selected === color}
               onSelect={() => setColor(color)}
+              transparent={transparentMode}
             />
           ))}
         </div>
+        <label className="toggle-row" style={{ marginTop: 4 }}>
+          <input
+            type="checkbox"
+            checked={transparentMode}
+            onChange={(e) => setTransparentMode(e.currentTarget.checked)}
+          />
+          <span className="toggle-row__label">
+            <span>Clear plastic</span>
+            <span className="toggle-row__hint">Place transmissive glass bricks</span>
+          </span>
+        </label>
       </div>
 
       <div className="sidebar-section">
@@ -57,19 +71,21 @@ function ColorSwatch({
   color,
   active,
   onSelect,
+  transparent,
 }: {
   color: BrickColor;
   active: boolean;
   onSelect: () => void;
+  transparent: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`swatch${active ? ' swatch--active' : ''}`}
+      className={`swatch${active ? ' swatch--active' : ''}${transparent ? ' swatch--clear' : ''}`}
       style={{ background: BRICK_COLOR_HEX[color] }}
       onClick={onSelect}
-      title={color}
-      aria-label={`Select ${color}`}
+      title={transparent ? `Select clear ${color}` : color}
+      aria-label={`Select ${transparent ? 'clear ' : ''}${color}`}
     />
   );
 }

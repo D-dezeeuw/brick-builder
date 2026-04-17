@@ -42,6 +42,8 @@ export type BrickRow = {
   gy: number;
   gz: number;
   rotation: number;
+  /** Clear-plastic modifier. Default false for rows pre migration 003. */
+  transparent: boolean;
   created_at: string;
 };
 

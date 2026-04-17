@@ -53,6 +53,7 @@ export function PathtracerDenoise() {
   const { pathtracer } = usePathtracer();
   const size = useThree((s) => s.size);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
+  const enabled = useEditorStore((s) => s.denoiseEnabled);
 
   const { scene, camera, bilateral, identity } = useMemo(() => buildRig(), []);
 
@@ -86,7 +87,9 @@ export function PathtracerDenoise() {
     };
     if (!tracer?.target) return;
     const samples = tracer.samples ?? 0;
-    if (samples < maxSamples) {
+    // Either off by user, or not yet converged — no-op and make sure the
+    // capture bus doesn't still point at a stale texture.
+    if (!enabled || samples < maxSamples) {
       if (publishedRef.current) {
         publishedRef.current = false;
         setDenoiseTexture(null);

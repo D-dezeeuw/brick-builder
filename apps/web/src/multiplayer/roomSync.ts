@@ -324,6 +324,7 @@ function rowToBrickSafe(raw: unknown): Brick | null {
     gy: row.gy,
     gz: row.gz,
     rotation: row.rotation as Rotation | undefined,
+    transparent: row.transparent === true ? true : undefined,
   };
   return isBrick(candidate) ? candidate : null;
 }
@@ -343,6 +344,7 @@ export function brickToRow(brick: Brick, roomId: string): Omit<BrickRow, 'create
     gy: brick.gy,
     gz: brick.gz,
     rotation: brick.rotation,
+    transparent: brick.transparent === true,
   };
 }
 

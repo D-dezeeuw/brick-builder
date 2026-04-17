@@ -55,6 +55,8 @@ function isGridCoord(v: unknown, allowNegative: boolean): boolean {
 export function isBrick(v: unknown): v is Brick {
   if (!v || typeof v !== 'object') return false;
   const b = v as Record<string, unknown>;
+  // `transparent` is optional — if present it must be a boolean.
+  if (b.transparent !== undefined && typeof b.transparent !== 'boolean') return false;
   return (
     typeof b.id === 'string' &&
     b.id.length > 0 &&

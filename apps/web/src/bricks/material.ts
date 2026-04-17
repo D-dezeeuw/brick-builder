@@ -89,8 +89,47 @@ export function createBrickMaterial(
   colorHex: string,
   quality: QualityConfig,
   reflectivity: number,
+  transparent: boolean,
 ): MeshStandardMaterial {
   const color = new Color(colorHex);
+
+  // Clear-plastic variant: transmissive tinted glass, independent of
+  // the reflectivity slider (a glossy vs matte clear brick both have
+  // roughness near zero or the transmission scatters noticeably).
+  // Quality still matters — MeshPhysicalMaterial is mandatory for
+  // transmission, which puts this past Low-quality budgets. Low falls
+  // back to a plain alpha-blended MeshStandardMaterial.
+  if (transparent) {
+    if (quality.useClearcoat) {
+      const material = new MeshPhysicalMaterial({
+        color,
+        roughness: 0.05,
+        metalness: 0,
+        transmission: 1,
+        ior: 1.48, // ABS plastic
+        thickness: 4,
+        clearcoat: 1,
+        clearcoatRoughness: 0.03,
+        transparent: true,
+        attenuationDistance: 80,
+        attenuationColor: color,
+      });
+      const cacheTag = 'brick-clear-phys';
+      material.customProgramCacheKey = () => cacheTag;
+      return material;
+    }
+    const material = new MeshStandardMaterial({
+      color,
+      roughness: 0.2,
+      metalness: 0,
+      transparent: true,
+      opacity: 0.55,
+    });
+    const cacheTag = 'brick-clear-std';
+    material.customProgramCacheKey = () => cacheTag;
+    return material;
+  }
+
   const props = reflectivityToProps(reflectivity);
 
   if (quality.useClearcoat) {

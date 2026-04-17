@@ -3,6 +3,7 @@ import { SHAPE_CATALOG, type BrickShape, type ShapeDef } from '@brick/shared';
 import { buildRectGeometry } from './rect';
 import { buildRoundGeometry } from './round';
 import { buildSlopeGeometry } from './slope';
+import { buildWindowGeometry } from './window';
 
 export function buildGeometry(def: ShapeDef): BufferGeometry {
   switch (def.kind) {
@@ -12,6 +13,8 @@ export function buildGeometry(def: ShapeDef): BufferGeometry {
       return buildRoundGeometry(def);
     case 'slope':
       return buildSlopeGeometry(def);
+    case 'window':
+      return buildWindowGeometry(def);
     case 'curve':
       throw new Error(`Geometry builder for 'curve' not yet implemented.`);
   }

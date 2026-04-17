@@ -62,5 +62,7 @@ function layersDescription(id: BrickShape): string {
       return `${def.angle}° slope`;
     case 'curve':
       return `curved (${def.profile})`;
+    case 'window':
+      return `window ${def.w}×${def.d}×${def.layers}`;
   }
 }

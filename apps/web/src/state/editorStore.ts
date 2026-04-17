@@ -46,6 +46,12 @@ type EditorState = {
 
   selectedShape: BrickShape;
   selectedColor: BrickColor;
+  /**
+   * When true, bricks placed from now on use the clear-plastic variant
+   * of their colour (transmissive tinted glass). Purely an input-mode
+   * flag — each brick persists its own `transparent` value.
+   */
+  transparentMode: boolean;
   rotation: Rotation;
   mode: EditorMode;
   quality: Quality;
@@ -78,6 +84,8 @@ type EditorState = {
    * button; range 1–128.
    */
   pathtracerMaxSamples: number;
+  /** When true, the bilateral denoise pass runs after convergence. */
+  denoiseEnabled: boolean;
 
   // --- Multiplayer / room state ---
   /** Current room id when connected; null for solo editing. */
@@ -120,6 +128,7 @@ type EditorState = {
   setTitle: (title: string) => void;
   setShape: (shape: BrickShape) => void;
   setColor: (color: BrickColor) => void;
+  setTransparentMode: (b: boolean) => void;
   setMode: (mode: EditorMode) => void;
   setQuality: (q: Quality) => void;
   setLightIntensity: (n: number) => void;
@@ -132,6 +141,7 @@ type EditorState = {
   setRenderMode: (b: boolean) => void;
   setPathtracerSamples: (n: number) => void;
   setPathtracerMaxSamples: (n: number) => void;
+  setDenoiseEnabled: (b: boolean) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
   setRoomPasswordState: (hasPassword: boolean, passwordSetAt: string | null) => void;
@@ -168,6 +178,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   selectedShape: 'brick_2x4',
   selectedColor: 'red',
+  transparentMode: false,
   rotation: 0,
   mode: 'build',
   quality: 'high',
@@ -185,6 +196,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   renderMode: false,
   pathtracerSamples: 0,
   pathtracerMaxSamples: 32,
+  denoiseEnabled: true,
   roomId: null,
   roomStatus: 'idle',
   roomHasPassword: false,
@@ -262,6 +274,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       recentShapes: [shape, ...s.recentShapes.filter((x) => x !== shape)].slice(0, HOTBAR_SIZE),
     })),
   setColor: (color) => set({ selectedColor: color }),
+  setTransparentMode: (b) => set({ transparentMode: b }),
   setMode: (mode) => set({ mode }),
   setQuality: (quality) => {
     // Quality switch re-seeds the effect toggles from the preset so Low really
@@ -286,6 +299,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
   setPathtracerMaxSamples: (n) =>
     set({ pathtracerMaxSamples: Math.max(1, Math.min(128, Math.round(n))) }),
+  setDenoiseEnabled: (b) => set({ denoiseEnabled: b }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
   setRoomPasswordState: (hasPassword, passwordSetAt) =>

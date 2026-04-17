@@ -1153,6 +1153,16 @@ body.space-panning .canvas-host > canvas:active {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3) inset;
 }
 
+/* Clear-plastic mode: ring of dots around the swatch to telegraph
+   that the next placed brick will be glassy. */
+.swatch--clear {
+  opacity: 0.72;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 22%, transparent 24%),
+    var(--swatch-bg, currentColor);
+  background-size: 6px 6px;
+}
+
 .hint {
   margin: 0;
   font-size: 12px;

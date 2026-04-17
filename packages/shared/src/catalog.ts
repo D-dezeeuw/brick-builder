@@ -46,6 +46,10 @@ export const SHAPE_IDS = [
   'slope45_2x2',
   'slope45_2x4',
   'cheese_1x1',
+  'windshield_2x2',
+  'windshield_2x4',
+  'window_1x2x2',
+  'window_1x4x3',
 ] as const;
 
 export type BrickShape = (typeof SHAPE_IDS)[number];
@@ -93,6 +97,10 @@ export const SHAPE_CATEGORY: Record<BrickShape, ShapeCategory> = {
   slope45_2x2: 'Specialty',
   slope45_2x4: 'Specialty',
   cheese_1x1: 'Specialty',
+  windshield_2x2: 'Specialty',
+  windshield_2x4: 'Specialty',
+  window_1x2x2: 'Specialty',
+  window_1x4x3: 'Specialty',
 };
 
 /** Human-readable display label for a shape. */
@@ -136,6 +144,10 @@ export const SHAPE_LABEL: Record<BrickShape, string> = {
   slope45_2x2: '45° 2×2',
   slope45_2x4: '45° 2×4',
   cheese_1x1: '30° cheese',
+  windshield_2x2: 'Windshield 2×2',
+  windshield_2x4: 'Windshield 2×4',
+  window_1x2x2: 'Window 1×2×2',
+  window_1x4x3: 'Window 1×4×3',
 };
 
 const rect = (
@@ -197,4 +209,14 @@ export const SHAPE_CATALOG: Record<BrickShape, ShapeDef> = {
   slope45_2x2: { kind: 'slope', w: 2, d: 2, layers: 3, angle: 45 },
   slope45_2x4: { kind: 'slope', w: 2, d: 4, layers: 3, angle: 45 },
   cheese_1x1: { kind: 'slope', w: 1, d: 1, layers: 2, angle: 30 },
+  // Windshields reuse the slope builder with proportions not already in
+  // the catalog — shorter layers for a steeper effective angle that
+  // reads as a vehicle windshield. Pair with the clear-plastic modifier
+  // to get a transmissive windshield pane.
+  windshield_2x2: { kind: 'slope', w: 2, d: 2, layers: 2, angle: 45 },
+  windshield_2x4: { kind: 'slope', w: 2, d: 4, layers: 2, angle: 45 },
+  // Windows are their own geometry — rectangular frame with an opening
+  // through the depth axis.
+  window_1x2x2: { kind: 'window', w: 1, d: 2, layers: 2 },
+  window_1x4x3: { kind: 'window', w: 1, d: 4, layers: 3 },
 };

@@ -62,7 +62,20 @@ export function PathtracingExpansion() {
       const im = obj as InstancedMesh;
       if (!im.isInstancedMesh || im.count === 0 || !im.parent) return;
 
-      const ptMaterial = getPtMaterial(im.material, scene.environment, materialByKey, reflectivity);
+      // Reach through to the realtime material to detect whether this
+      // bucket is the clear-plastic variant. InstancedBricks routes
+      // transparent bricks through MeshPhysicalMaterial with
+      // transmission > 0, so that flag is the most reliable signal.
+      const firstMat = Array.isArray(im.material) ? im.material[0] : im.material;
+      const transparent = (firstMat as MeshPhysicalMaterial).transmission > 0;
+
+      const ptMaterial = getPtMaterial(
+        im.material,
+        scene.environment,
+        materialByKey,
+        reflectivity,
+        transparent,
+      );
       if (ptMaterial && !ptMaterials.includes(ptMaterial)) ptMaterials.push(ptMaterial);
 
       for (let i = 0; i < im.count; i++) {
@@ -96,13 +109,41 @@ function getPtMaterial(
   envMap: Texture | null,
   cache: Map<string, MeshPhysicalMaterial>,
   reflectivity: number,
+  transparent: boolean,
 ): MeshPhysicalMaterial | null {
   const base = Array.isArray(source) ? source[0] : source;
   const color = (base as MeshPhysicalMaterial).color;
   if (!color) return null;
-  const key = `#${color.getHexString()}`;
+  const key = `${transparent ? 't' : 's'}#${color.getHexString()}`;
   const existing = cache.get(key);
   if (existing) return existing;
+
+  if (transparent) {
+    // Clear-plastic PT variant. three-gpu-pathtracer 0.0.23 reads
+    // transmission/ior/thickness/attenuation off MeshPhysicalMaterial
+    // directly, so the traced result matches the realtime tinted-glass
+    // look. Roughness stays very low so highlights stay crisp; the
+    // tint comes from attenuationColor (= surface color) rather than
+    // base color, which keeps interior transmission coloured without
+    // a baked opacity.
+    const material = new MeshPhysicalMaterial({
+      color: color.clone(),
+      roughness: 0.05,
+      metalness: 0,
+      transmission: 1,
+      ior: 1.48,
+      thickness: 4,
+      clearcoat: 1,
+      clearcoatRoughness: 0.03,
+      attenuationDistance: 80,
+      attenuationColor: color.clone(),
+    });
+    material.envMap = envMap;
+    material.envMapIntensity = 1;
+    cache.set(key, material);
+    return material;
+  }
+
   const props = reflectivityToProps(reflectivity);
   // Sheen is deliberately omitted — it's the MeshPhysicalMaterial feature
   // that caused mobile shader-budget issues before, and the PT's own BRDF

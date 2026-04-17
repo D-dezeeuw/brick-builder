@@ -31,11 +31,13 @@ export function EffectsSection() {
   const smaa = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
+  const denoise = useEditorStore((s) => s.denoiseEnabled);
   const setAo = useEditorStore((s) => s.setAoEnabled);
   const setBloom = useEditorStore((s) => s.setBloomEnabled);
   const setSmaa = useEditorStore((s) => s.setSmaaEnabled);
   const setRenderMode = useEditorStore((s) => s.setRenderMode);
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
+  const setDenoise = useEditorStore((s) => s.setDenoiseEnabled);
   const support = getPathTraceSupport();
 
   return (
@@ -80,6 +82,12 @@ export function EffectsSection() {
           <span>128</span>
         </div>
       </div>
+      <Toggle
+        label="Denoise on converge"
+        hint="Bilateral smooth once samples hit the target"
+        checked={denoise}
+        onChange={setDenoise}
+      />
     </div>
   );
 }
