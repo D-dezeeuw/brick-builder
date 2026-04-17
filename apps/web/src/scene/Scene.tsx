@@ -40,6 +40,7 @@ const INITIAL_BASEPLATE_STUDS = 32;
 
 export function Scene() {
   const quality = useEditorStore((s) => s.quality);
+  const baseplateVisible = useEditorStore((s) => s.baseplateVisible);
   const lightIntensity = useEditorStore((s) => s.lightIntensity);
   const lightWarmth = useEditorStore((s) => s.lightWarmth);
   const envIntensity = useEditorStore((s) => s.envIntensity);
@@ -143,7 +144,7 @@ export function Scene() {
         shadow-camera-far={baseSize * 4}
         shadow-bias={-0.0005}
       />
-      <Baseplate />
+      {baseplateVisible && <Baseplate />}
       <InstancedBricks />
     </>
   );

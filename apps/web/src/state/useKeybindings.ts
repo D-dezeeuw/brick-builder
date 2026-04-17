@@ -66,6 +66,29 @@ export function useKeybindings() {
 
       const store = useEditorStore.getState();
 
+      // Mode switches — cancel any in-flight carry first so the user's
+      // intent to change modes wins cleanly (matches the sidebar mode
+      // buttons' behaviour). E is taken by layer-bump, so Erase uses X
+      // (think "cross out").
+      if (e.key === 'b' || e.key === 'B') {
+        if (store.carrying) cancelCarry();
+        store.setMode('build');
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'x' || e.key === 'X') {
+        if (store.carrying) cancelCarry();
+        store.setMode('erase');
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        if (store.carrying) cancelCarry();
+        store.setMode('select');
+        e.preventDefault();
+        return;
+      }
+
       if (e.key === 'r' || e.key === 'R') {
         store.rotateCursor();
         e.preventDefault();

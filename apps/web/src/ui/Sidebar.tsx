@@ -135,7 +135,7 @@ function BuildTab() {
 
       <div className="sidebar-section sidebar-section--hints">
         <p className="hint">
-          <kbd>Tap</kbd> place · <kbd>R-click</kbd> delete · <kbd>R</kbd> rotate
+          <kbd>B</kbd>/<kbd>X</kbd>/<kbd>H</kbd> build/erase/hand · <kbd>R</kbd> rotate
         </p>
         <p className="hint">
           <kbd>Q</kbd>/<kbd>E</kbd> layer · <kbd>1</kbd>–<kbd>9</kbd> recent

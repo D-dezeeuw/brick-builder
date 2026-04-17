@@ -5,14 +5,14 @@ import { buildRoundGeometry } from './round';
 import { buildSlopeGeometry } from './slope';
 import { buildWindowGeometry } from './window';
 
-export function buildGeometry(def: ShapeDef): BufferGeometry {
+export function buildGeometry(def: ShapeDef, showStuds = true): BufferGeometry {
   switch (def.kind) {
     case 'rect':
-      return buildRectGeometry(def);
+      return buildRectGeometry(def, showStuds);
     case 'round':
-      return buildRoundGeometry(def);
+      return buildRoundGeometry(def, showStuds);
     case 'slope':
-      return buildSlopeGeometry(def);
+      return buildSlopeGeometry(def, showStuds);
     case 'window':
       return buildWindowGeometry(def);
     case 'curve':
@@ -20,13 +20,21 @@ export function buildGeometry(def: ShapeDef): BufferGeometry {
   }
 }
 
-const cache = new Map<BrickShape, BufferGeometry>();
+// Cache key mixes in the studs flag so toggling back and forth reuses
+// the already-built geometry rather than re-merging every tick.
+type CacheKey = `${BrickShape}|${'s' | 'n'}`;
+const cache = new Map<CacheKey, BufferGeometry>();
 
-export function getGeometry(shape: BrickShape): BufferGeometry {
-  let g = cache.get(shape);
+function keyFor(shape: BrickShape, showStuds: boolean): CacheKey {
+  return `${shape}|${showStuds ? 's' : 'n'}`;
+}
+
+export function getGeometry(shape: BrickShape, showStuds = true): BufferGeometry {
+  const key = keyFor(shape, showStuds);
+  let g = cache.get(key);
   if (!g) {
-    g = buildGeometry(SHAPE_CATALOG[shape]);
-    cache.set(shape, g);
+    g = buildGeometry(SHAPE_CATALOG[shape], showStuds);
+    cache.set(key, g);
   }
   return g;
 }

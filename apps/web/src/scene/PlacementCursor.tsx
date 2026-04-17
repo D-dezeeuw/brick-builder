@@ -38,6 +38,7 @@ export function PlacementCursor() {
   const selectedShape = useEditorStore((s) => s.selectedShape);
   const rotation = useEditorStore((s) => s.rotation);
   const mode = useEditorStore((s) => s.mode);
+  const studsVisible = useEditorStore((s) => s.studsVisible);
   const layerOffset = useEditorStore((s) => s.layerOffset);
   const placementOffset = useEditorStore((s) => s.placementOffset);
   const mirrorAxis = useEditorStore((s) => s.mirrorAxis);
@@ -367,7 +368,10 @@ export function PlacementCursor() {
     return () => window.removeEventListener('keydown', onKey);
   }, [camera]);
 
-  const geometry = useMemo(() => getGeometry(selectedShape), [selectedShape]);
+  const geometry = useMemo(
+    () => getGeometry(selectedShape, studsVisible),
+    [selectedShape, studsVisible],
+  );
   // Select/Hand mode shows no cursor ghost — the mode is a one-shot
   // click-to-pickup and flips into build immediately.
   if (mode === 'select') return null;
@@ -384,7 +388,7 @@ export function PlacementCursor() {
     const bodyW = fp.w * STUD_PITCH_MM;
     const bodyD = fp.d * STUD_PITCH_MM;
     const { x: ox, z: oz } = rotationOffsetMM(target.rotation, bodyW, bodyD);
-    const targetGeom = getGeometry(target.shape);
+    const targetGeom = getGeometry(target.shape, studsVisible);
     return (
       <group
         position={[

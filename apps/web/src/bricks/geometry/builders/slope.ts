@@ -16,7 +16,7 @@ import { safeMerge } from './common';
  * Orientation: tall edge at world Z=0 (back), slope descends toward Z=d*8.
  * Rotation (R) cycles through the 4 facing directions.
  */
-export function buildSlopeGeometry(def: SlopeDef): BufferGeometry {
+export function buildSlopeGeometry(def: SlopeDef, showStuds = true): BufferGeometry {
   const { w, d, layers } = def;
   const bodyH = layers * PLATE_HEIGHT_MM;
   const pitch = STUD_PITCH_MM;
@@ -48,7 +48,7 @@ export function buildSlopeGeometry(def: SlopeDef): BufferGeometry {
 
   const parts: BufferGeometry[] = [prism];
 
-  if (d >= 2) {
+  if (d >= 2 && showStuds) {
     const studR = STUD_DIAMETER_MM / 2;
     const studY = bodyH + STUD_HEIGHT_MM / 2;
     for (let ix = 0; ix < w; ix++) {

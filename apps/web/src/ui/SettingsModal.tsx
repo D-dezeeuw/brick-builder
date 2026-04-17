@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { EffectsSection } from './EffectsSection';
 import { LightingSection } from './LightingSection';
 import { QualitySection } from './QualitySection';
+import { ViewSection } from './ViewSection';
 
 type Props = {
   open: boolean;
@@ -50,6 +51,7 @@ export function SettingsModal({ open, onClose }: Props) {
         </header>
         <div className="settings-panel__body">
           <QualitySection />
+          <ViewSection />
           <LightingSection />
           <EffectsSection />
         </div>

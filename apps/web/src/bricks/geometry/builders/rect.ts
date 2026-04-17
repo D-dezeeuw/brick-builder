@@ -22,14 +22,18 @@ import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM, safeMerg
  * Origin at body bottom-front-left so world placement stays `(gx*8, gy*3.2, gz*8)`.
  */
 
-export function buildRectGeometry(def: RectDef): BufferGeometry {
+export function buildRectGeometry(def: RectDef, showStuds = true): BufferGeometry {
   const { w, d, layers, top, bottom } = def;
   const bodyW = w * STUD_PITCH_MM;
   const bodyD = d * STUD_PITCH_MM;
   const bodyH = layers * PLATE_HEIGHT_MM;
 
   const parts: BufferGeometry[] = [buildBody(bodyW, bodyD, bodyH, w, d, bottom)];
-  parts.push(...buildTop(bodyW, bodyD, bodyH, w, d, top));
+  // showStuds=false collapses every stud-bearing top variant to a smooth
+  // one so the brick reads like a tile — used by the "hide studs" scene
+  // toggle for clean screenshots.
+  const effectiveTop = showStuds ? top : 'smooth';
+  parts.push(...buildTop(bodyW, bodyD, bodyH, w, d, effectiveTop));
 
   const merged = safeMerge(parts);
   merged.computeVertexNormals();

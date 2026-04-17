@@ -120,6 +120,17 @@ type EditorState = {
   pathtracerMaxSamples: number;
   /** When true, the bilateral denoise pass runs after convergence. */
   denoiseEnabled: boolean;
+  /**
+   * Render the baseplate slab + its stud field. Toggle off for clean
+   * screenshots or to present a build as a standalone model.
+   */
+  baseplateVisible: boolean;
+  /**
+   * Render studs on every brick. Toggle off for a smooth-block look
+   * (Minecraft-ish / architecture-model rendering). Geometry is
+   * rebuilt and cached per-variant so toggling is cheap.
+   */
+  studsVisible: boolean;
   /** When true, placing a brick plays the synthesized click. */
   placementSoundEnabled: boolean;
   /** When true, rotating the camera plays the filtered-noise whoosh. */
@@ -228,6 +239,8 @@ type EditorState = {
   setPathtracerSamples: (n: number) => void;
   setPathtracerMaxSamples: (n: number) => void;
   setDenoiseEnabled: (b: boolean) => void;
+  setBaseplateVisible: (b: boolean) => void;
+  setStudsVisible: (b: boolean) => void;
   setPlacementSoundEnabled: (b: boolean) => void;
   setWooshSoundEnabled: (b: boolean) => void;
   setAudioMuted: (b: boolean) => void;
@@ -332,6 +345,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pathtracerSamples: 0,
   pathtracerMaxSamples: 32,
   denoiseEnabled: true,
+  baseplateVisible: true,
+  studsVisible: true,
   placementSoundEnabled: true,
   wooshSoundEnabled: true,
   audioMuted: false,
@@ -490,6 +505,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setPathtracerMaxSamples: (n) =>
     set({ pathtracerMaxSamples: Math.max(1, Math.min(128, Math.round(n))) }),
   setDenoiseEnabled: (b) => set({ denoiseEnabled: b }),
+  setBaseplateVisible: (b) => set({ baseplateVisible: b }),
+  setStudsVisible: (b) => set({ studsVisible: b }),
   setPlacementSoundEnabled: (b) => {
     set({ placementSoundEnabled: b });
     setPlacementSoundEnabled(b);

@@ -140,7 +140,8 @@ type BucketProps = {
 function BrickBucket({ shape, color, transparent, items }: BucketProps) {
   const quality = useEditorStore((s) => s.quality);
   const reflectivity = useEditorStore((s) => s.brickReflectivity);
-  const geometry = useMemo(() => getGeometry(shape), [shape]);
+  const studsVisible = useEditorStore((s) => s.studsVisible);
+  const geometry = useMemo(() => getGeometry(shape, studsVisible), [shape, studsVisible]);
   const material = useMemo(
     () =>
       createBrickMaterial(

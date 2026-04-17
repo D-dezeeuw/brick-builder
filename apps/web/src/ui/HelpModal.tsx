@@ -10,6 +10,7 @@ const SECTIONS: Array<{
       ['Tap / L-click', 'Place the selected brick'],
       ['R-click / Erase mode', 'Remove a brick'],
       ['Alt + click', 'Eyedropper — copy shape, colour, clear flag'],
+      ['B / X / H', 'Switch mode: Build / eXit (erase) / Hand'],
       ['R', 'Rotate the ghost'],
       ['Q / E', 'Lower / raise target layer'],
       ['Arrow keys', 'Nudge ghost ±1 stud (resets on mouse move)'],
@@ -54,7 +55,8 @@ const SECTIONS: Array<{
   {
     heading: 'Graphics',
     rows: [
-      ['⚙', 'Open Quality / Lighting / Effects'],
+      ['⚙', 'Open Quality / View / Lighting / Effects'],
+      ['View', 'Hide the baseplate or stud bumps for clean screenshots'],
       ['Ultra', 'Enables GPU path-traced render mode'],
     ],
   },

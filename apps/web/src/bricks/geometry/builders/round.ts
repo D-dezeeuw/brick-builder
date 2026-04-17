@@ -14,7 +14,7 @@ import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM, safeMerg
  * the square-grid positions the footprint would occupy, so these pieces
  * snap cleanly onto a normal studded grid.
  */
-export function buildRoundGeometry(def: RoundDef): BufferGeometry {
+export function buildRoundGeometry(def: RoundDef, showStuds = true): BufferGeometry {
   const { diameter, layers, top } = def;
   const bodyRadius = (diameter * STUD_PITCH_MM) / 2;
   const bodyH = layers * PLATE_HEIGHT_MM;
@@ -22,7 +22,8 @@ export function buildRoundGeometry(def: RoundDef): BufferGeometry {
   const cz = bodyRadius;
 
   const parts: BufferGeometry[] = [buildRoundBody(bodyRadius, bodyH, diameter, cx, cz)];
-  parts.push(...buildRoundTop(cx, cz, bodyH, diameter, top));
+  const effectiveTop = showStuds ? top : 'smooth';
+  parts.push(...buildRoundTop(cx, cz, bodyH, diameter, effectiveTop));
 
   const merged = safeMerge(parts);
   merged.computeVertexNormals();
