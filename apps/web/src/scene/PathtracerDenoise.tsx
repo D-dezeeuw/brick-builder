@@ -6,7 +6,6 @@ import {
   PlaneGeometry,
   Scene,
   ShaderMaterial,
-  SRGBColorSpace,
   Uniform,
   Vector2,
   WebGLRenderTarget,
@@ -23,12 +22,25 @@ import { setDenoiseTexture } from '../state/denoiseBus';
  * runs a single 5×5 bilateral filter over the HDR accumulator — edge-
  * preserving blur that smooths flat regions without softening brick
  * edges — and draws the result to the canvas, replacing the raw
- * tracer output. The bilateral target is tone-mapped + sRGB-encoded
- * so screenshots can read it directly.
+ * tracer output.
  *
  * Flow per frame after convergence:
- *   1. Bilateral pass:   HDR PT target --[bilateral + tonemap + sRGB]--> denoise target
- *   2. Display blit:     denoise target --[identity]--> canvas
+ *   1. Bilateral pass:   HDR PT target --[bilateral + ACES tonemap]--> denoise target (linear)
+ *   2. Display blit:     denoise target --[linear→sRGB encode]--> canvas
+ *
+ * Colour-space notes:
+ *   - Target keeps the default NoColorSpace. Bilateral writes linear
+ *     tone-mapped values; identity shader encodes to sRGB just before
+ *     writing to the canvas framebuffer.
+ *   - We avoid the three.js shader chunks `<tonemapping_pars_fragment>`
+ *     and `<colorspace_pars_fragment>` — ShaderMaterial in 0.171 has
+ *     the colorspace pars auto-prepended, and `<tonemapping_pars_fragment>`
+ *     only defines `toneMapping()` when `material.toneMapped=true`. The
+ *     combination of both would either duplicate function bodies or miss
+ *     the tone-mapping entry point, which is exactly how the previous
+ *     version failed to compile (went black after convergence).
+ *   - ACES is Narkowicz's 2015 fit — visually indistinguishable from
+ *     three.js's ACESFilmicToneMapping at the exposure we use (1.0).
  *
  * useFrame priority=1 ensures both passes run *after* the tracer's own
  * display pass (priority=0), so our blit overwrites the canvas in the
@@ -42,11 +54,7 @@ export function PathtracerDenoise() {
 
   const { scene, camera, bilateral, identity } = useMemo(() => buildRig(), []);
 
-  const target = useMemo(() => {
-    const t = new WebGLRenderTarget(1, 1);
-    t.texture.colorSpace = SRGBColorSpace;
-    return t;
-  }, []);
+  const target = useMemo(() => new WebGLRenderTarget(1, 1), []);
 
   // Keep target + uniform resolution in sync with the canvas.
   useEffect(() => {
@@ -90,13 +98,15 @@ export function PathtracerDenoise() {
     const mesh = scene.children[0] as Mesh;
     const prev = renderer.getRenderTarget();
 
-    // Pass 1: bilateral into our LDR sRGB target.
+    // Pass 1: bilateral into target (linear, tone-mapped).
     mesh.material = bilateral;
     bilateral.uniforms.uInput.value = tracer.target.texture;
     renderer.setRenderTarget(target);
     renderer.render(scene, camera);
 
-    // Pass 2: identity blit of the denoise target to the canvas.
+    // Pass 2: sample the denoise target and sRGB-encode on the way to
+    // the canvas. Canvas framebuffer is sRGB, so without the encode the
+    // image would display dark.
     mesh.material = identity;
     identity.uniforms.uInput.value = target.texture;
     renderer.setRenderTarget(null);
@@ -128,10 +138,30 @@ function buildRig() {
     }
   `;
 
-  // 5×5 bilateral filter with tone mapping + sRGB encode baked in.
-  // Spatial weight falls off with pixel distance; color weight falls
-  // off with luminance difference so brick edges (big luma jumps)
-  // aren't smoothed across.
+  // Shared GLSL helpers — Narkowicz ACES + Linear→sRGB. No three.js
+  // chunk includes (see class comment).
+  const helpers = /* glsl */ `
+    vec3 acesFilmic(vec3 x) {
+      const float a = 2.51;
+      const float b = 0.03;
+      const float c = 2.43;
+      const float d = 0.59;
+      const float e = 0.14;
+      return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    }
+    vec3 linearToSRGB(vec3 c) {
+      c = clamp(c, 0.0, 1.0);
+      bvec3 cutoff = lessThanEqual(c, vec3(0.0031308));
+      vec3 low = c * 12.92;
+      vec3 high = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
+      return mix(high, low, vec3(cutoff));
+    }
+  `;
+
+  // 5×5 bilateral filter in HDR. Spatial weight falls off with pixel
+  // distance; color weight falls off with vec3 distance so brick edges
+  // (big RGB jumps) aren't smoothed across. ACES tone-mapping happens
+  // on the averaged result; the sRGB encode is deferred to pass 2.
   const bilateral = new ShaderMaterial({
     uniforms: {
       uInput: new Uniform(null),
@@ -148,9 +178,7 @@ function buildRig() {
       uniform float uSigmaColor;
       varying vec2 vUv;
 
-      #include <common>
-      #include <tonemapping_pars_fragment>
-      #include <colorspace_pars_fragment>
+      ${helpers}
 
       void main() {
         vec2 texel = 1.0 / uResolution;
@@ -173,8 +201,7 @@ function buildRig() {
           }
         }
         vec3 denoised = sum / max(totalWeight, 1e-6);
-        denoised = toneMapping(denoised);
-        gl_FragColor = linearToOutputTexel(vec4(denoised, 1.0));
+        gl_FragColor = vec4(acesFilmic(denoised), 1.0);
       }
     `,
     toneMapped: false,
@@ -182,9 +209,10 @@ function buildRig() {
     depthWrite: false,
   });
 
-  // Plain identity blit: sample the already-encoded denoise target
-  // and write it to whatever render target is currently bound. No
-  // tone mapping, no colorspace math — the input is already sRGB.
+  // Display pass: sample the denoise target (linear tone-mapped) and
+  // apply the sRGB transfer so the canvas framebuffer shows the right
+  // brightness. ShaderMaterial doesn't auto-inject the colorspace
+  // encode, so we do it manually.
   const identity = new ShaderMaterial({
     uniforms: { uInput: new Uniform(null) },
     vertexShader,
@@ -192,8 +220,12 @@ function buildRig() {
       precision highp float;
       uniform sampler2D uInput;
       varying vec2 vUv;
+
+      ${helpers}
+
       void main() {
-        gl_FragColor = texture2D(uInput, vUv);
+        vec3 c = texture2D(uInput, vUv).rgb;
+        gl_FragColor = vec4(linearToSRGB(c), 1.0);
       }
     `,
     toneMapped: false,
