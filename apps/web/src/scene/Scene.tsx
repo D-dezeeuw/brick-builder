@@ -9,6 +9,7 @@ import { PlacementCursor } from './PlacementCursor';
 import { ResourceBoundary } from './ResourceBoundary';
 import { InstancedBricks } from '../bricks/InstancedBricks';
 import { useEditorStore } from '../state/editorStore';
+import { useIdlePause } from '../state/useIdlePause';
 import { QUALITY_CONFIGS } from '../state/quality';
 import { warmthToRgb } from './lightColor';
 
@@ -43,6 +44,11 @@ export function Scene() {
   const smaaEnabled = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
   const pathtracerMaxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
+  // When the user has been idle long enough, cut the rAF loop entirely
+  // so GPU/CPU go to ~zero until the next input or store change. The
+  // last rendered frame stays visible on the canvas — no visible
+  // change to the user unless they notice the fan stop.
+  const active = useIdlePause();
   const config = QUALITY_CONFIGS[quality];
 
   const lightColor = useMemo(() => {
@@ -142,6 +148,7 @@ export function Scene() {
     <Canvas
       camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }}
       shadows={{ type: PCFSoftShadowMap }}
+      frameloop={active ? 'always' : 'never'}
       gl={{
         toneMapping: ACESFilmicToneMapping,
         toneMappingExposure: 1.0,

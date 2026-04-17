@@ -33,6 +33,7 @@ export function EffectsSection() {
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const denoise = useEditorStore((s) => s.denoiseEnabled);
   const sound = useEditorStore((s) => s.placementSoundEnabled);
+  const idlePause = useEditorStore((s) => s.idlePauseEnabled);
   const setAo = useEditorStore((s) => s.setAoEnabled);
   const setBloom = useEditorStore((s) => s.setBloomEnabled);
   const setSmaa = useEditorStore((s) => s.setSmaaEnabled);
@@ -40,6 +41,7 @@ export function EffectsSection() {
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
   const setDenoise = useEditorStore((s) => s.setDenoiseEnabled);
   const setSound = useEditorStore((s) => s.setPlacementSoundEnabled);
+  const setIdlePause = useEditorStore((s) => s.setIdlePauseEnabled);
   const support = getPathTraceSupport();
 
   return (
@@ -95,6 +97,12 @@ export function EffectsSection() {
         hint="Click feedback when you drop a brick"
         checked={sound}
         onChange={setSound}
+      />
+      <Toggle
+        label="Pause when idle"
+        hint="Stop rendering after 30s of no activity"
+        checked={idlePause}
+        onChange={setIdlePause}
       />
     </div>
   );

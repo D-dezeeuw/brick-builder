@@ -96,6 +96,13 @@ type EditorState = {
   denoiseEnabled: boolean;
   /** When true, placing a brick plays the synthesized click. */
   placementSoundEnabled: boolean;
+  /**
+   * When true, the WebGL canvas stops rendering after 30s of no user
+   * input — the last frame stays visible on screen, GPU goes idle.
+   * Off by default on rooms where peer edits are frequent and the
+   * user wants live updates without re-interacting.
+   */
+  idlePauseEnabled: boolean;
 
   // --- Multiplayer / room state ---
   /** Current room id when connected; null for solo editing. */
@@ -154,6 +161,7 @@ type EditorState = {
   setPathtracerMaxSamples: (n: number) => void;
   setDenoiseEnabled: (b: boolean) => void;
   setPlacementSoundEnabled: (b: boolean) => void;
+  setIdlePauseEnabled: (b: boolean) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
   setRoomPasswordState: (hasPassword: boolean, passwordSetAt: string | null) => void;
@@ -211,6 +219,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pathtracerMaxSamples: 32,
   denoiseEnabled: true,
   placementSoundEnabled: true,
+  idlePauseEnabled: true,
   roomId: null,
   roomStatus: 'idle',
   roomHasPassword: false,
@@ -319,6 +328,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ placementSoundEnabled: b });
     setPlacementSoundEnabled(b);
   },
+  setIdlePauseEnabled: (b) => set({ idlePauseEnabled: b }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
   setRoomPasswordState: (hasPassword, passwordSetAt) =>
