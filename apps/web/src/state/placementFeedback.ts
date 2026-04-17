@@ -140,12 +140,16 @@ export function playPlacementSound(size = 6, layers = 3): void {
 
   const bodyFreq = (2500 - pitchCurve * 1000) * jitter(0.02);
   const bodyEndFreq = bodyFreq * (0.82 - norm * 0.1);
-  // Body decay + gain are both gated by `hollow`. Flat pieces get a
-  // tiny 15ms pulse at very low gain (effectively inaudible as a
-  // "ring" — it just adds a hint of pitch to the click). Brick-tall
-  // pieces keep the full 30→80 ms decay scaled by size.
-  const bodyDecay = (0.015 + hollow * (0.015 + norm * 0.05)) * jitter(0.04);
-  const bodyGainBase = hollow * (0.08 + norm * 0.12);
+  // Body decay shortens as the piece grows — larger bricks have
+  // more mass, more baseplate contact, more internal tubing, so
+  // they damp faster and land as a "thunk" rather than a long ring.
+  // Small 1×1 brick rings ~60 ms; a 2×8 rings only ~35 ms. (Plates
+  // keep the 15 ms floor thanks to the hollow=0 gate.)
+  const bodyDecay = (0.015 + hollow * (0.055 - norm * 0.035)) * jitter(0.04);
+  // Gain stays present for big pieces — a damped-but-loud body adds
+  // weight to the thunk; it's the short decay that kills the "ring"
+  // feel, not the amplitude.
+  const bodyGainBase = hollow * (0.1 + norm * 0.08);
   const tackFreq = (3200 - pitchCurve * 1000) * jitter(0.015);
   const tackDecay = (0.015 + norm * 0.02) * jitter(0.05);
   // Plates/tiles lean harder on the tack since the body is gone —
