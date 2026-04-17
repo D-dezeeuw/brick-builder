@@ -62,10 +62,12 @@ export function placeBrick(input: PlacementInput): string | null {
   // Feedback — register the drop-in animation and fire the click
   // sound. Inbound remote placements skip this (see roomSync), so
   // only the local builder hears and sees the flourish. Sound is
-  // size-scaled: tiny plate → crisp tick, big brick → fuller thud.
+  // size-scaled (volume drives pitch/duration) and layer-scaled
+  // (height drives hollowness): tiny plate → pure click, big
+  // brick → full hollow thunk.
   markPlaced(id);
   const fp = footprintOf(SHAPE_CATALOG[input.shape]);
-  playPlacementSound(fp.w * fp.d * fp.layers);
+  playPlacementSound(fp.w * fp.d * fp.layers, fp.layers);
 
   commandStack.run({
     do: () => {

@@ -100,11 +100,17 @@ function jitter(amount: number): number {
 
 /**
  * Play the placement click. `size` is the brick's footprint volume
- * (`w × d × layers` in stud cells). Defaulted to 6 (≈1×2 brick) for
- * callers that don't have shape info. Expected range in our catalog:
- * 1 (1×1 plate) → 48 (2×8 brick).
+ * (`w × d × layers` in stud cells); `layers` is the height in plate-
+ * layers (plate = 1, cheese = 2, brick = 3). Size drives pitch and
+ * overall duration; layers drives the hollowness — flat pieces
+ * (plates, tiles, round_plate) almost entirely lose the body
+ * resonance so they read as a clean click, while brick-tall pieces
+ * keep the full hollow thunk.
+ *
+ * Defaults match a 1×2 brick so callers without shape info still
+ * get a reasonable sound.
  */
-export function playPlacementSound(size = 6): void {
+export function playPlacementSound(size = 6, layers = 3): void {
   if (!soundEnabled) return;
   const ctx = ensureCtx();
   if (!ctx) return;
@@ -123,23 +129,29 @@ export function playPlacementSound(size = 6): void {
 
   // Pitch interpolator uses a `pow(norm, 0.75)` curve so the small
   // end stretches — 1×1 tiles/plates sit clearly above 1×1 bricks
-  // (which have size 3, norm ≈ 0.28). With linear interpolation the
-  // gap was ~280 Hz; curved it's ~380 Hz. Volume and decay stay
-  // linear because those don't need the extra spread.
+  // (which have size 3, norm ≈ 0.28).
   const pitchCurve = Math.pow(norm, 0.75);
 
-  // Jitter tightened from ±8-20% down to ±2-5%. The looser numbers
-  // were masking the size-based pitch identity — a jittered-low
-  // 1×1 plate could overlap a jittered-high 1×1 brick. Now the size
-  // signal stays clean while each click still has a touch of life.
+  // Hollowness follows layer count: a plate/tile/round (layers=1)
+  // has no shell to resonate so `hollow` is 0; a cheese slope
+  // (layers=2) gets some; a brick (layers≥3) gets the full ring.
+  // This is what drives whether we hear a *click* or a *thunk*.
+  const hollow = Math.max(0, Math.min(1, (layers - 1) / 2));
+
   const bodyFreq = (2500 - pitchCurve * 1000) * jitter(0.02);
-  const bodyEndFreq = bodyFreq * (0.82 - norm * 0.1); // bigger = bigger pitch drop
-  const bodyDecay = (0.03 + norm * 0.05) * jitter(0.04); // 30→80 ms
-  const bodyGainBase = 0.08 + norm * 0.12; // small = thin, large = full body
+  const bodyEndFreq = bodyFreq * (0.82 - norm * 0.1);
+  // Body decay + gain are both gated by `hollow`. Flat pieces get a
+  // tiny 15ms pulse at very low gain (effectively inaudible as a
+  // "ring" — it just adds a hint of pitch to the click). Brick-tall
+  // pieces keep the full 30→80 ms decay scaled by size.
+  const bodyDecay = (0.015 + hollow * (0.015 + norm * 0.05)) * jitter(0.04);
+  const bodyGainBase = hollow * (0.08 + norm * 0.12);
   const tackFreq = (3200 - pitchCurve * 1000) * jitter(0.015);
-  const tackDecay = (0.015 + norm * 0.02) * jitter(0.05); // 15→35 ms
-  const tackGainBase = 0.32 - norm * 0.08; // small pieces lean on the tack
-  const bodyAttack = 0.002 + norm * 0.003; // bigger = slightly softer onset
+  const tackDecay = (0.015 + norm * 0.02) * jitter(0.05);
+  // Plates/tiles lean harder on the tack since the body is gone —
+  // adds up to a crisper click instead of a muted one.
+  const tackGainBase = 0.3 - norm * 0.05 + (1 - hollow) * 0.1;
+  const bodyAttack = 0.002 + norm * 0.003;
   const masterGain = jitter(0.025);
 
   // --- Voice 1: noise transient (the "tack") ---
