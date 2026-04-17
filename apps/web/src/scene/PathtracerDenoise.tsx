@@ -19,36 +19,32 @@ import { setDenoiseTexture } from '../state/denoiseBus';
  *
  * three-gpu-pathtracer's accumulator still has visible speckle at our
  * sample counts (1–128). Once `samples >= maxSamples`, this component
- * runs a 3-iteration À-Trous wavelet filter — step sizes 1, 2, 4 —
- * over the HDR accumulator. Each iteration is a 5×5 edge-aware (à la
- * bilateral) blur with the taps spaced by the step. The three iterations
- * combined cover a 17×17 neighbourhood while only sampling 75 pixels per
- * output, and the edge-preserving weights keep brick rims crisp.
+ * runs a single 5×5 bilateral filter over the HDR accumulator — edge-
+ * preserving blur that smooths flat regions without softening brick
+ * edges — and draws the result to the canvas, replacing the raw
+ * tracer output.
  *
  * Flow per frame after convergence:
- *   Pass 1:  HDR PT target --[bilateral step=1 + ACES tonemap]--> A
- *   Pass 2:  A --[bilateral step=2]--> B
- *   Pass 3:  B --[bilateral step=4]--> A
- *   Display: A --[linear→sRGB encode]--> canvas
+ *   1. Bilateral pass:   HDR PT target --[bilateral + ACES tonemap]--> denoise target (linear)
+ *   2. Display blit:     denoise target --[linear→sRGB encode]--> canvas
  *
- * Passes 2 and 3 operate in LDR linear space (values already mapped
- * to [0,1] by pass 1's ACES) — sigmaColor is calibrated for that range.
+ * A previous revision wrapped three À-Trous iterations (steps 1/2/4)
+ * but over-smoothed: the 17×17 effective reach crushed fine surface
+ * detail. Dropped back to the single 5×5 pass — cleans the worst of
+ * the speckle without blurring anything visible.
  *
  * Colour-space notes:
- *   - Targets use the default NoColorSpace. Bilateral writes linear
+ *   - Target keeps the default NoColorSpace. Bilateral writes linear
  *     tone-mapped values; identity shader encodes to sRGB just before
  *     writing to the canvas framebuffer.
  *   - We avoid the three.js shader chunks `<tonemapping_pars_fragment>`
  *     and `<colorspace_pars_fragment>` — ShaderMaterial in 0.171 has
  *     the colorspace pars auto-prepended, and `<tonemapping_pars_fragment>`
- *     only defines `toneMapping()` when `material.toneMapped=true`. The
- *     combination of both would either duplicate function bodies or miss
- *     the tone-mapping entry point, which is exactly how the previous
- *     version failed to compile (went black after convergence).
+ *     only defines `toneMapping()` when `material.toneMapped=true`.
  *   - ACES is Narkowicz's 2015 fit — visually indistinguishable from
  *     three.js's ACESFilmicToneMapping at the exposure we use (1.0).
  *
- * useFrame priority=1 ensures these passes run *after* the tracer's own
+ * useFrame priority=1 ensures both passes run *after* the tracer's own
  * display pass (priority=0), so our blit overwrites the canvas in the
  * same frame. Before convergence the component no-ops; the raw tracer
  * output stays on screen so users can watch it build.
@@ -60,23 +56,18 @@ export function PathtracerDenoise() {
 
   const { scene, camera, bilateral, identity } = useMemo(() => buildRig(), []);
 
-  // Ping-pong pair. Final À-Trous output always lands in targetA.
-  const targetA = useMemo(() => new WebGLRenderTarget(1, 1), []);
-  const targetB = useMemo(() => new WebGLRenderTarget(1, 1), []);
+  const target = useMemo(() => new WebGLRenderTarget(1, 1), []);
 
-  // Keep targets + uniform resolution in sync with the canvas.
   useEffect(() => {
     const w = Math.max(1, size.width);
     const h = Math.max(1, size.height);
-    targetA.setSize(w, h);
-    targetB.setSize(w, h);
+    target.setSize(w, h);
     bilateral.uniforms.uResolution.value.set(w, h);
-  }, [size, targetA, targetB, bilateral]);
+  }, [size, target, bilateral]);
 
   useEffect(() => {
     return () => {
-      targetA.dispose();
-      targetB.dispose();
+      target.dispose();
       bilateral.dispose();
       identity.dispose();
       scene.children[0]?.traverse?.((o) => {
@@ -84,7 +75,7 @@ export function PathtracerDenoise() {
       });
       setDenoiseTexture(null);
     };
-  }, [targetA, targetB, bilateral, identity, scene]);
+  }, [target, bilateral, identity, scene]);
 
   const publishedRef = useRef(false);
 
@@ -96,8 +87,6 @@ export function PathtracerDenoise() {
     if (!tracer?.target) return;
     const samples = tracer.samples ?? 0;
     if (samples < maxSamples) {
-      // Pre-convergence: let the raw tracer output through. Clear any
-      // stale denoise texture reference the screenshot bus might hold.
       if (publishedRef.current) {
         publishedRef.current = false;
         setDenoiseTexture(null);
@@ -107,45 +96,26 @@ export function PathtracerDenoise() {
 
     const mesh = scene.children[0] as Mesh;
     const prev = renderer.getRenderTarget();
+
+    // Pass 1: bilateral into target (linear, tone-mapped).
     mesh.material = bilateral;
-
-    // À-Trous iteration 1: HDR PT target → A, step=1, tone-map on write.
     bilateral.uniforms.uInput.value = tracer.target.texture;
-    bilateral.uniforms.uStep.value = 1;
-    bilateral.uniforms.uToneMap.value = 1;
-    renderer.setRenderTarget(targetA);
+    renderer.setRenderTarget(target);
     renderer.render(scene, camera);
 
-    // Iteration 2: A → B, step=2, pass-through (already tone-mapped).
-    bilateral.uniforms.uInput.value = targetA.texture;
-    bilateral.uniforms.uStep.value = 2;
-    bilateral.uniforms.uToneMap.value = 0;
-    renderer.setRenderTarget(targetB);
-    renderer.render(scene, camera);
-
-    // Iteration 3: B → A, step=4.
-    bilateral.uniforms.uInput.value = targetB.texture;
-    bilateral.uniforms.uStep.value = 4;
-    bilateral.uniforms.uToneMap.value = 0;
-    renderer.setRenderTarget(targetA);
-    renderer.render(scene, camera);
-
-    // Display: A → canvas, applying sRGB encode on the way out. Canvas
-    // framebuffer is sRGB so without the encode the image would display
-    // dark.
+    // Pass 2: sRGB-encode on the way to the canvas.
     mesh.material = identity;
-    identity.uniforms.uInput.value = targetA.texture;
+    identity.uniforms.uInput.value = target.texture;
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
 
-    // Cleanup + restore.
     renderer.setRenderTarget(prev);
     bilateral.uniforms.uInput.value = null;
     identity.uniforms.uInput.value = null;
 
     if (!publishedRef.current) {
       publishedRef.current = true;
-      setDenoiseTexture(targetA.texture);
+      setDenoiseTexture(target.texture);
     }
   }, 1);
 
@@ -164,8 +134,6 @@ function buildRig() {
     }
   `;
 
-  // Shared GLSL helpers — Narkowicz ACES + Linear→sRGB. No three.js
-  // chunk includes (see class comment).
   const helpers = /* glsl */ `
     vec3 acesFilmic(vec3 x) {
       const float a = 2.51;
@@ -184,20 +152,12 @@ function buildRig() {
     }
   `;
 
-  // 5×5 edge-aware blur, reused across À-Trous iterations. `uStep`
-  // controls the spacing between taps — 1, 2, 4 in successive passes
-  // gives an effective 17×17 kernel while sampling only 25 pixels per
-  // output. `uToneMap` is 1 on the first iteration (reads HDR accumulator,
-  // writes tone-mapped LDR) and 0 on later iterations (data's already
-  // mapped to [0,1]).
   const bilateral = new ShaderMaterial({
     uniforms: {
       uInput: new Uniform(null),
       uResolution: new Uniform(new Vector2(1, 1)),
-      uSigmaSpatial: new Uniform(2.0),
-      uSigmaColor: new Uniform(0.2),
-      uStep: new Uniform(1),
-      uToneMap: new Uniform(1),
+      uSigmaSpatial: new Uniform(1.5),
+      uSigmaColor: new Uniform(0.15),
     },
     vertexShader,
     fragmentShader: /* glsl */ `
@@ -206,14 +166,12 @@ function buildRig() {
       uniform vec2 uResolution;
       uniform float uSigmaSpatial;
       uniform float uSigmaColor;
-      uniform float uStep;
-      uniform float uToneMap;
       varying vec2 vUv;
 
       ${helpers}
 
       void main() {
-        vec2 texel = uStep / uResolution;
+        vec2 texel = 1.0 / uResolution;
         vec3 center = texture2D(uInput, vUv).rgb;
         vec3 sum = vec3(0.0);
         float totalWeight = 0.0;
@@ -233,8 +191,7 @@ function buildRig() {
           }
         }
         vec3 denoised = sum / max(totalWeight, 1e-6);
-        if (uToneMap > 0.5) denoised = acesFilmic(denoised);
-        gl_FragColor = vec4(denoised, 1.0);
+        gl_FragColor = vec4(acesFilmic(denoised), 1.0);
       }
     `,
     toneMapped: false,
@@ -242,10 +199,6 @@ function buildRig() {
     depthWrite: false,
   });
 
-  // Display pass: sample the denoise target (linear tone-mapped) and
-  // apply the sRGB transfer so the canvas framebuffer shows the right
-  // brightness. ShaderMaterial doesn't auto-inject the colorspace
-  // encode, so we do it manually.
   const identity = new ShaderMaterial({
     uniforms: { uInput: new Uniform(null) },
     vertexShader,

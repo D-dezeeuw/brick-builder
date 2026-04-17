@@ -9,6 +9,8 @@ import {
   type Material,
   type Texture,
 } from 'three';
+import { reflectivityToProps } from '../bricks/material';
+import { useEditorStore } from '../state/editorStore';
 
 /**
  * three-gpu-pathtracer@0.0.23 (the last release compatible with three 0.171)
@@ -43,6 +45,11 @@ import {
  */
 export function PathtracingExpansion() {
   const scene = useThree((s) => s.scene);
+  // Reflectivity is part of the deps so moving the slider during render
+  // mode re-clones with updated surface parameters. The path tracer
+  // then re-runs setScene() from scratch — acceptable since it needs
+  // to re-converge on any material change anyway.
+  const reflectivity = useEditorStore((s) => s.brickReflectivity);
 
   useLayoutEffect(() => {
     const clones: Mesh[] = [];
@@ -55,7 +62,7 @@ export function PathtracingExpansion() {
       const im = obj as InstancedMesh;
       if (!im.isInstancedMesh || im.count === 0 || !im.parent) return;
 
-      const ptMaterial = getPtMaterial(im.material, scene.environment, materialByKey);
+      const ptMaterial = getPtMaterial(im.material, scene.environment, materialByKey, reflectivity);
       if (ptMaterial && !ptMaterials.includes(ptMaterial)) ptMaterials.push(ptMaterial);
 
       for (let i = 0; i < im.count; i++) {
@@ -79,7 +86,7 @@ export function PathtracingExpansion() {
       for (const im of hidden) im.visible = true;
       for (const mat of ptMaterials) mat.dispose();
     };
-  }, [scene]);
+  }, [scene, reflectivity]);
 
   return null;
 }
@@ -88,6 +95,7 @@ function getPtMaterial(
   source: Material | Material[],
   envMap: Texture | null,
   cache: Map<string, MeshPhysicalMaterial>,
+  reflectivity: number,
 ): MeshPhysicalMaterial | null {
   const base = Array.isArray(source) ? source[0] : source;
   const color = (base as MeshPhysicalMaterial).color;
@@ -95,19 +103,17 @@ function getPtMaterial(
   const key = `#${color.getHexString()}`;
   const existing = cache.get(key);
   if (existing) return existing;
-  // ABS plastic profile for the path tracer: a fairly smooth base
-  // (roughness 0.28) for soft body reflections, plus a clear coat
-  // layer with near-mirror roughness for the crisp LEGO sheen. Sheen
-  // is deliberately omitted — it's the MeshPhysicalMaterial feature
-  // that caused mobile shader-budget issues before and the PT's own
-  // BRDF doesn't support it in 0.0.23 anyway. A tiny emissive term
-  // keeps dark corners from crushing to pure black.
+  const props = reflectivityToProps(reflectivity);
+  // Sheen is deliberately omitted — it's the MeshPhysicalMaterial feature
+  // that caused mobile shader-budget issues before, and the PT's own BRDF
+  // doesn't support it in 0.0.23 anyway. A tiny emissive term keeps dark
+  // corners from crushing to pure black if the env map fails to load.
   const material = new MeshPhysicalMaterial({
     color: color.clone(),
-    roughness: 0.28,
+    roughness: props.roughness,
     metalness: 0,
-    clearcoat: 0.85,
-    clearcoatRoughness: 0.06,
+    clearcoat: props.clearcoat,
+    clearcoatRoughness: props.clearcoatRoughness,
     emissive: new Color(color).multiplyScalar(0.02),
   });
   material.envMap = envMap;

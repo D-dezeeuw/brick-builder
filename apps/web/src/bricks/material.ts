@@ -52,28 +52,54 @@ function patchOrenNayar(material: MeshStandardMaterial | MeshPhysicalMaterial): 
 }
 
 /**
- * Build a brick material sized to the current quality level.
- * - low:    plain MeshStandardMaterial, roughness 0.4, no patching.
- * - medium: MeshStandardMaterial + Oren-Nayar, roughness 0.55.
- * - high+:  MeshPhysicalMaterial + Oren-Nayar + clearcoat 1 / 0.08 + subtle sheen,
- *           ABS-tuned roughness 0.35.
+ * Maps the 0..1 "brickReflectivity" slider into the three surface
+ * parameters that make up a glossy plastic look. Shared between the
+ * realtime materials (here) and the path-traced clones in
+ * PathtracingExpansion so the slider has a consistent effect.
+ *
+ * - 0.0: fully matte ABS       (roughness 0.85, clearcoat 0.00)
+ * - 0.5: satin                 (roughness 0.48, clearcoat 0.50)
+ * - 1.0: wet / near-mirror     (roughness 0.10, clearcoat 1.00)
+ */
+export type ReflectivityProps = {
+  roughness: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
+};
+
+export function reflectivityToProps(r: number): ReflectivityProps {
+  const t = Math.max(0, Math.min(1, r));
+  return {
+    roughness: 0.85 - t * 0.75, // 0.85 → 0.10
+    clearcoat: t, // 0.0 → 1.0
+    clearcoatRoughness: 0.4 - t * 0.38, // 0.40 → 0.02
+  };
+}
+
+/**
+ * Build a brick material at the current quality level and reflectivity.
+ * - low/medium: plain MeshStandardMaterial (no clearcoat) — slider
+ *   only moves roughness.
+ * - high/ultra: MeshPhysicalMaterial — all three props respond.
+ *
+ * Quality also toggles the Oren-Nayar diffuse patch (medium+); that
+ * part is independent of the slider.
  */
 export function createBrickMaterial(
   colorHex: string,
   quality: QualityConfig,
+  reflectivity: number,
 ): MeshStandardMaterial {
   const color = new Color(colorHex);
+  const props = reflectivityToProps(reflectivity);
 
   if (quality.useClearcoat) {
     const material = new MeshPhysicalMaterial({
       color,
-      roughness: 0.35,
+      roughness: props.roughness,
       metalness: 0,
-      clearcoat: 1,
-      clearcoatRoughness: 0.08,
-      sheen: 0.15,
-      sheenRoughness: 0.8,
-      sheenColor: new Color('#ffffff'),
+      clearcoat: props.clearcoat,
+      clearcoatRoughness: props.clearcoatRoughness,
     });
     if (quality.useOrenNayar) patchOrenNayar(material);
     const cacheTag = `brick-phys-on${quality.useOrenNayar ? 1 : 0}`;
@@ -83,7 +109,7 @@ export function createBrickMaterial(
 
   const material = new MeshStandardMaterial({
     color,
-    roughness: quality.useOrenNayar ? 0.55 : 0.4,
+    roughness: props.roughness,
     metalness: 0,
   });
   if (quality.useOrenNayar) patchOrenNayar(material);

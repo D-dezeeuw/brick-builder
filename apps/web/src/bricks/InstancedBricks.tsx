@@ -120,10 +120,11 @@ type BucketProps = {
 
 function BrickBucket({ shape, color, items }: BucketProps) {
   const quality = useEditorStore((s) => s.quality);
+  const reflectivity = useEditorStore((s) => s.brickReflectivity);
   const geometry = useMemo(() => getGeometry(shape), [shape]);
   const material = useMemo(
-    () => createBrickMaterial(BRICK_COLOR_HEX[color], QUALITY_CONFIGS[quality]),
-    [color, quality],
+    () => createBrickMaterial(BRICK_COLOR_HEX[color], QUALITY_CONFIGS[quality], reflectivity),
+    [color, quality, reflectivity],
   );
   const capacity = capacityFor(items.length);
 

@@ -55,6 +55,12 @@ type EditorState = {
   lightWarmth: number;
   /** IBL environment-map intensity (0..2). 0 disables reflections from the HDRI. */
   envIntensity: number;
+  /**
+   * Single "how glossy are the bricks" knob (0..1) — drives roughness,
+   * clearcoat, and clearcoatRoughness together for both the realtime
+   * and path-traced materials. 0 = fully matte ABS, 1 = wet/mirror.
+   */
+  brickReflectivity: number;
 
   // --- Post-processing effect toggles (independent of quality preset) ---
   aoEnabled: boolean;
@@ -119,6 +125,7 @@ type EditorState = {
   setLightIntensity: (n: number) => void;
   setLightWarmth: (n: number) => void;
   setEnvIntensity: (n: number) => void;
+  setBrickReflectivity: (n: number) => void;
   setAoEnabled: (b: boolean) => void;
   setBloomEnabled: (b: boolean) => void;
   setSmaaEnabled: (b: boolean) => void;
@@ -169,6 +176,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // Studio HDRI from pmndrs/assets is quite bright; 0.3 gives a plausible
   // plastic highlight without washing out direct shading.
   envIntensity: 0.3,
+  // Mid-gloss ABS by default — satin clearcoat, not quite wet.
+  brickReflectivity: 0.6,
   // Effect defaults seeded from the High preset to match initial `quality: 'high'`.
   aoEnabled: EFFECT_DEFAULTS.high.ao,
   bloomEnabled: EFFECT_DEFAULTS.high.bloom,
@@ -269,6 +278,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setLightIntensity: (n) => set({ lightIntensity: Math.max(0, Math.min(2, n)) }),
   setLightWarmth: (n) => set({ lightWarmth: Math.max(-1, Math.min(1, n)) }),
   setEnvIntensity: (n) => set({ envIntensity: Math.max(0, Math.min(2, n)) }),
+  setBrickReflectivity: (n) => set({ brickReflectivity: Math.max(0, Math.min(1, n)) }),
   setAoEnabled: (b) => set({ aoEnabled: b }),
   setBloomEnabled: (b) => set({ bloomEnabled: b }),
   setSmaaEnabled: (b) => set({ smaaEnabled: b }),

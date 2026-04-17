@@ -6,10 +6,12 @@ export function LightingSection() {
   const intensity = useEditorStore((s) => s.lightIntensity);
   const warmth = useEditorStore((s) => s.lightWarmth);
   const envIntensity = useEditorStore((s) => s.envIntensity);
+  const reflectivity = useEditorStore((s) => s.brickReflectivity);
   const quality = useEditorStore((s) => s.quality);
   const setIntensity = useEditorStore((s) => s.setLightIntensity);
   const setWarmth = useEditorStore((s) => s.setLightWarmth);
   const setEnvIntensity = useEditorStore((s) => s.setEnvIntensity);
+  const setReflectivity = useEditorStore((s) => s.setBrickReflectivity);
 
   const envAvailable = QUALITY_CONFIGS[quality].useEnvironment;
 
@@ -78,6 +80,28 @@ export function LightingSection() {
           disabled={!envAvailable}
           aria-label="Environment map (HDRI) intensity"
         />
+      </div>
+
+      <div className="slider-row">
+        <div className="slider-row__label">
+          <span>Surface gloss</span>
+          <span className="slider-row__value">{reflectivity.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          className="slider"
+          min={0}
+          max={1}
+          step={0.01}
+          value={reflectivity}
+          onChange={(e) => setReflectivity(Number(e.currentTarget.value))}
+          aria-label="Brick surface gloss (roughness + clearcoat)"
+        />
+        <div className="slider-row__scale" aria-hidden="true">
+          <span>Matte</span>
+          <span>Satin</span>
+          <span>Mirror</span>
+        </div>
       </div>
     </div>
   );

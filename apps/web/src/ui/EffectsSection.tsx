@@ -1,4 +1,5 @@
 import { useEditorStore } from '../state/editorStore';
+import { useSettingsStore } from '../state/settingsStore';
 import { getPathTraceSupport } from '../state/webglCaps';
 
 type ToggleProps = {
@@ -92,18 +93,29 @@ function PathTraceButton({
   setRenderMode: (b: boolean) => void;
   support: ReturnType<typeof getPathTraceSupport>;
 }) {
+  const closeSettings = useSettingsStore((s) => s.setOpen);
   const disabled = !support.supported && !renderMode;
   const title = renderMode
     ? 'Exit path-traced render mode'
     : support.supported
       ? 'Switch to GPU path tracer — non-interactive, converges over a few seconds'
       : support.reason;
+  const onClick = () => {
+    const next = !renderMode;
+    setRenderMode(next);
+    // When turning render mode ON, get the settings modal out of the
+    // way so the user can see the full canvas converge. Exiting render
+    // mode from inside the modal is rare enough that keeping it open
+    // there matters less — but even then the button is the main exit
+    // affordance, so close in both directions for simplicity.
+    closeSettings(false);
+  };
   return (
     <>
       <button
         type="button"
         className={`render-btn${renderMode ? ' render-btn--active' : ''}`}
-        onClick={() => setRenderMode(!renderMode)}
+        onClick={onClick}
         disabled={disabled}
         title={title}
       >
