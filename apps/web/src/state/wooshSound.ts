@@ -28,10 +28,18 @@ let filter: BiquadFilterNode | null = null;
 let gainNode: GainNode | null = null;
 
 const MAX_RAD_PER_SEC = 4; // flick speed — anything faster saturates
-const MAX_GAIN = 0.12;
+const MAX_GAIN = 0.08; // 33% lower peak than before — less shouty
 const MIN_CUTOFF = 350; // Hz — barely-moving rumble
 const MAX_CUTOFF = 2200; // Hz — fast-flick brightness
-const SMOOTH_CONST = 0.05; // seconds for param smoothing (setTargetAtTime τ)
+const SMOOTH_CONST = 0.07; // seconds for param smoothing (τ) — longer tail
+/**
+ * Power curve applied to normalised velocity before it hits gain.
+ * Higher exponents make slow rotations quieter while preserving full
+ * punch on flicks, widening the perceived dynamic range. 1 = linear,
+ * 2 = aggressively quiet at low speed. 1.7 is a "present but not
+ * chatty" midpoint.
+ */
+const GAIN_CURVE = 1.7;
 
 function ensureGraph(): boolean {
   if (source) return true;
@@ -86,7 +94,7 @@ export function setWooshSpeed(radPerSec: number): void {
   const n = Math.max(0, Math.min(1, radPerSec / MAX_RAD_PER_SEC));
   // Below this threshold we want absolute silence — otherwise tiny
   // drifts from damping would keep a faint hiss going indefinitely.
-  const gainTarget = n < 0.04 ? 0 : n * MAX_GAIN;
+  const gainTarget = n < 0.04 ? 0 : Math.pow(n, GAIN_CURVE) * MAX_GAIN;
   const cutoffTarget = MIN_CUTOFF + n * (MAX_CUTOFF - MIN_CUTOFF);
 
   const t = ctx.currentTime;
