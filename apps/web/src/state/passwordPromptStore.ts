@@ -45,10 +45,7 @@ export const usePasswordPrompt = create<PasswordPromptState>((set, get) => ({
   setError: (message) => set({ error: message, pending: null }),
 }));
 
-export function requestPassword(
-  roomId: string,
-  message?: string,
-): Promise<string | null> {
+export function requestPassword(roomId: string, message?: string): Promise<string | null> {
   return new Promise<string | null>((resolve) => {
     const prev = usePasswordPrompt.getState().pending;
     prev?.(null);

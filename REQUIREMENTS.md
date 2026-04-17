@@ -3,14 +3,17 @@
 A web-based, videogame-feeling 3D editor for building creations from procedurally generated LEGO-style bricks, with realistic plastic shading, URL sharing, and real-time collaborative editing.
 
 ## Vision
+
 Open the app and be building within seconds. Pick a brick from a sidebar, snap it onto a baseplate, see it rendered like real ABS plastic. Share a URL and a friend joins the same canvas live. No install, no account required for the basic flow.
 
 ## Users & primary jobs
+
 - **Solo builder** — opens the editor, builds a creation, shares a URL snapshot.
 - **Co-builders** — join a room via URL, build together in real time.
 - **Returning builder** — refreshes mid-build, autosave restores exactly where they left off.
 
 ## Non-functional requirements
+
 - **Performance**
   - 60 fps at 2,000 placed bricks on mid-range laptop (2020+ Intel iGPU or better)
   - ≥45 fps at 10,000 bricks on M-series Mac / discrete GPU
@@ -30,6 +33,7 @@ Open the app and be building within seconds. Pick a brick from a sidebar, snap i
   - Mobile (touch) = nice-to-have, Phase 7
 
 ## Functional — MVP (Phases 1–2)
+
 - Place, rotate (90° around Y), and delete bricks
 - Brick catalog ≥ 12 shapes: 1×1, 1×2, 1×3, 1×4, 1×6, 1×8, 2×2, 2×3, 2×4, 2×6, 2×8, 2×10 — plus plate variants
 - Grid snap to stud positions; stacking resolves current build layer automatically
@@ -42,6 +46,7 @@ Open the app and be building within seconds. Pick a brick from a sidebar, snap i
 - Keyboard: `R` rotate, `Ctrl+Z/Y` undo/redo, `Del` delete, `Q/E` layer change, `1–9` recent bricks
 
 ## Functional — v1 (Phases 3–6)
+
 - Realistic ABS plastic shading (MeshPhysicalMaterial + HDRI + post-FX)
 - Authentic brick geometry: studs with recessed tops, anti-studs / tubes on bottom, 0.2 mm tolerance gap
 - 10,000+ bricks performant via `InstancedMesh` per (shape, color) + LOD
@@ -54,6 +59,7 @@ Open the app and be building within seconds. Pick a brick from a sidebar, snap i
 - Presence: remote user cursors with name + color tag
 
 ## Out of scope (for now)
+
 - Minifigures, Technic parts, curved bricks, stickers, decals
 - Official LEGO IP assets, textures, or branding
 - Step-by-step build-instruction export
@@ -62,18 +68,21 @@ Open the app and be building within seconds. Pick a brick from a sidebar, snap i
 - Native mobile apps
 
 ## Constraints & principles
+
 - **Procedural everything**: no imported brick meshes; geometry is code, keyed by dimensions
 - **Integer-LU placement math**: internal coords in LEGO units (1 LU = 0.8 mm); convert to mm only at render
 - **Client-authoritative + CRDT**: no custom server conflict resolution; Yjs handles merges
 - **No LEGO IP**: we describe geometry, never use trademarks or official color names in user-facing copy where avoidable
 
 ## Open questions (answer during sprints)
+
 - Brick thumbnail strategy: live mini-canvases vs pre-rendered sprites? (decide Phase 2)
 - Environment map: ship our own HDRI vs use `drei` preset? (decide Phase 4)
 - Room permissions: open rooms only, or optional passcode? (decide Phase 6)
 - Deployment target: Fly.io vs Render vs self-host? (decide Phase 7)
 
 ## Source references (LEGO dimensions)
+
 - [Stud Dimensions Guide — Brick Owl](https://www.brickowl.com/us/help/stud-dimensions)
 - [LEGO Brick Dimensions — Bartneck](https://www.bartneck.de/2019/04/21/lego-brick-dimensions-and-measurements/)
 - [Lego Geometry 101 — Bricking Ohio](https://www.brickingohio.com/blog/lego-geometry-101)

@@ -1,9 +1,4 @@
-import {
-  type BufferGeometry,
-  CylinderGeometry,
-  ExtrudeGeometry,
-  Shape,
-} from 'three';
+import { type BufferGeometry, CylinderGeometry, ExtrudeGeometry, Shape } from 'three';
 import {
   PLATE_HEIGHT_MM,
   STUD_DIAMETER_MM,

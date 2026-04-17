@@ -6,6 +6,7 @@ import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { CaptureBridge } from './CaptureBridge';
 import { PlacementCursor } from './PlacementCursor';
+import { ResourceBoundary } from './ResourceBoundary';
 import { InstancedBricks } from '../bricks/InstancedBricks';
 import { useEditorStore } from '../state/editorStore';
 import { QUALITY_CONFIGS } from '../state/quality';
@@ -94,7 +95,23 @@ export function Scene() {
   const sceneContent = (
     <>
       {config.useEnvironment && envIntensity > 0 && (
-        <Environment preset="studio" background={false} environmentIntensity={envIntensity} />
+        // Self-hosted HDRI — drei's `preset="studio"` fetches from
+        // raw.githack.com, which rate-limited us out with 403s and took
+        // the whole Canvas down (the loader error bubbled to
+        // SceneErrorBoundary). Local file removes the external dep; the
+        // ResourceBoundary + inner Suspense swallow any future load
+        // failure so the scene degrades to direct lights instead of
+        // crashing. BASE_URL handles the Pages subpath (`/brick-builder/`)
+        // transparently.
+        <ResourceBoundary name="environment">
+          <Suspense fallback={null}>
+            <Environment
+              files={`${import.meta.env.BASE_URL}hdri/studio_small.hdr`}
+              background={false}
+              environmentIntensity={envIntensity}
+            />
+          </Suspense>
+        </ResourceBoundary>
       )}
       <ambientLight intensity={ambientBase * lightIntensity} color={lightColor} />
       <directionalLight

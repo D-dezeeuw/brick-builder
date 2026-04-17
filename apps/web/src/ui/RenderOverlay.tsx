@@ -24,11 +24,7 @@ export function RenderOverlay() {
           {shown} / {PATHTRACE_TARGET_SAMPLES}
         </span>
       </span>
-      <button
-        type="button"
-        className="render-overlay__exit"
-        onClick={() => setRenderMode(false)}
-      >
+      <button type="button" className="render-overlay__exit" onClick={() => setRenderMode(false)}>
         Exit
       </button>
     </div>

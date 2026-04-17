@@ -13,7 +13,11 @@ import {
 import { useEditorStore } from '../state/editorStore';
 import { commandStack } from '../state/commandStack';
 import { useToastStore } from '../state/toastStore';
-import { closePasswordPrompt, requestPassword, usePasswordPrompt } from '../state/passwordPromptStore';
+import {
+  closePasswordPrompt,
+  requestPassword,
+  usePasswordPrompt,
+} from '../state/passwordPromptStore';
 import { supabase, type BrickRow, type RoomRow } from './supabase';
 import { ensureAnonymousSession } from './auth';
 import { checkMembership, rpcJoinRoom } from './roomPassword';

@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
 import { connectToRoom, disconnectRoom } from '../multiplayer/roomSync';
-import {
-  rpcRemoveRoomPassword,
-  rpcSetRoomPassword,
-} from '../multiplayer/roomPassword';
+import { rpcRemoveRoomPassword, rpcSetRoomPassword } from '../multiplayer/roomPassword';
 import { roomShareUrl } from '../multiplayer/useRoomRouter';
 import { hasSupabase, newRoomId } from '../multiplayer/supabase';
 
@@ -72,7 +69,11 @@ export function RoomControl() {
         <span className={`room-chip__dot room-chip__dot--${status}`} aria-hidden="true" />
         <span className="room-chip__id">Room {roomId}</span>
         {hasPassword && (
-          <span className="room-chip__lock" aria-label="password protected" title="Password protected">
+          <span
+            className="room-chip__lock"
+            aria-label="password protected"
+            title="Password protected"
+          >
             🔒
           </span>
         )}
@@ -132,7 +133,10 @@ function RoomPasswordButton({ roomId, hasPassword, open, setOpen }: PasswordButt
       showToast(hasPassword ? 'Wrong current password' : 'Could not set password', 'error');
       return;
     }
-    showToast(hasPassword ? 'Password changed — others kicked' : 'Password set — others kicked', 'success');
+    showToast(
+      hasPassword ? 'Password changed — others kicked' : 'Password set — others kicked',
+      'success',
+    );
     setOpen(false);
   };
 
@@ -181,10 +185,7 @@ function RoomPasswordPanel({ hasPassword, onSet, onRemove, onClose: _onClose }: 
   const [next, setNext] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const disabled =
-    busy ||
-    next.length === 0 ||
-    (hasPassword && current.length === 0);
+  const disabled = busy || next.length === 0 || (hasPassword && current.length === 0);
 
   const handleSet = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,11 +248,7 @@ function RoomPasswordPanel({ hasPassword, onSet, onRemove, onClose: _onClose }: 
             Remove
           </button>
         )}
-        <button
-          type="submit"
-          className="fallback__btn fallback__btn--primary"
-          disabled={disabled}
-        >
+        <button type="submit" className="fallback__btn fallback__btn--primary" disabled={disabled}>
           {hasPassword ? 'Change' : 'Set'}
         </button>
       </div>

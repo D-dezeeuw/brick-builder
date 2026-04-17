@@ -14,12 +14,7 @@ import {
   type RectDef,
 } from '@brick/shared';
 
-import {
-  ANTI_STUD_PIN_R,
-  ANTI_STUD_TUBE_OUTER_R,
-  CEILING_THICKNESS_MM,
-  safeMerge,
-} from './common';
+import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM, safeMerge } from './common';
 
 /**
  * Rectangular brick / plate / tile geometry, optionally hollowed on the bottom
@@ -89,7 +84,9 @@ function addAntiStudHoles(outline: Shape, w: number, d: number): void {
   if (w >= 2 && d >= 2) {
     for (let i = 1; i < w; i++) {
       for (let j = 1; j < d; j++) {
-        outline.holes.push(circleHole(i * STUD_PITCH_MM, j * STUD_PITCH_MM, ANTI_STUD_TUBE_OUTER_R));
+        outline.holes.push(
+          circleHole(i * STUD_PITCH_MM, j * STUD_PITCH_MM, ANTI_STUD_TUBE_OUTER_R),
+        );
       }
     }
     return;

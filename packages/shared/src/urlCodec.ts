@@ -22,7 +22,9 @@ export function decodeCreation(encoded: string): Creation | null {
 }
 
 /** Read `#c=<encoded>` from a URL (defaults to current location). */
-export function readCreationFromHash(hash: string = typeof location !== 'undefined' ? location.hash : ''): Creation | null {
+export function readCreationFromHash(
+  hash: string = typeof location !== 'undefined' ? location.hash : '',
+): Creation | null {
   if (!hash || hash.length <= 1) return null;
   // URLSearchParams expects no leading `#` — strip it.
   const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);

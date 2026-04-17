@@ -1,10 +1,4 @@
-import {
-  type BufferGeometry,
-  CylinderGeometry,
-  ExtrudeGeometry,
-  Path,
-  Shape,
-} from 'three';
+import { type BufferGeometry, CylinderGeometry, ExtrudeGeometry, Path, Shape } from 'three';
 import {
   PLATE_HEIGHT_MM,
   STUD_DIAMETER_MM,
@@ -12,12 +6,7 @@ import {
   STUD_PITCH_MM,
   type RoundDef,
 } from '@brick/shared';
-import {
-  ANTI_STUD_PIN_R,
-  ANTI_STUD_TUBE_OUTER_R,
-  CEILING_THICKNESS_MM,
-  safeMerge,
-} from './common';
+import { ANTI_STUD_PIN_R, ANTI_STUD_TUBE_OUTER_R, CEILING_THICKNESS_MM, safeMerge } from './common';
 
 /**
  * Round plate / round brick — 1×1 or 2×2 footprint. Cylindrical body with

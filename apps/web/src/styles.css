@@ -8,7 +8,12 @@
   --accent: #ffcc00;
   --sidebar-width: 300px;
   --topbar-height: 48px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color: var(--fg);
   background: var(--bg);
 }
@@ -67,7 +72,9 @@ body,
   border: 1px solid transparent;
   outline: none;
   cursor: text;
-  transition: background 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    border-color 0.08s ease;
 }
 
 .title:hover {
@@ -123,7 +130,10 @@ body,
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    color 0.08s ease,
+    border-color 0.08s ease;
 }
 
 .icon-btn:hover {
@@ -163,7 +173,9 @@ body,
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    border-color 0.08s ease;
 }
 
 .room-chip:hover {
@@ -579,7 +591,9 @@ body,
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    border-color 0.08s ease;
 }
 
 .fallback__btn:hover {
@@ -633,7 +647,10 @@ body,
   cursor: pointer;
   font-family: inherit;
   flex-shrink: 0;
-  transition: background 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    color 0.08s ease,
+    border-color 0.08s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -872,7 +889,9 @@ body.space-panning .canvas-host > canvas:active {
   background: var(--bg);
   color: var(--fg);
   cursor: pointer;
-  transition: background 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    border-color 0.08s ease;
 }
 
 .render-btn:hover {
@@ -925,7 +944,8 @@ body.space-panning .canvas-host > canvas:active {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -1071,7 +1091,9 @@ body.space-panning .canvas-host > canvas:active {
   color: var(--fg-muted);
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.08s ease, color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    color 0.08s ease;
 }
 
 .mode-btn:hover {
@@ -1097,7 +1119,9 @@ body.space-panning .canvas-host > canvas:active {
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
-  transition: transform 0.08s ease, border-color 0.08s ease;
+  transition:
+    transform 0.08s ease,
+    border-color 0.08s ease;
 }
 
 .swatch:hover {
@@ -1163,7 +1187,10 @@ body.space-panning .canvas-host > canvas:active {
   color: var(--fg-muted);
   border-radius: 5px;
   cursor: pointer;
-  transition: background 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+  transition:
+    background 0.08s ease,
+    color 0.08s ease,
+    border-color 0.08s ease;
   font-family: inherit;
   white-space: nowrap;
   overflow: hidden;

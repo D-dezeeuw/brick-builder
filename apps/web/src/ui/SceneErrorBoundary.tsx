@@ -42,15 +42,19 @@ export class SceneErrorBoundary extends Component<Props, State> {
       <div className="fallback">
         <h2>The 3D canvas stopped working.</h2>
         <p className="fallback__body">
-          This usually means the GPU dropped the WebGL context. Reload to start fresh, or
-          retry in place — your work autosaves to localStorage.
+          This usually means the GPU dropped the WebGL context. Reload to start fresh, or retry in
+          place — your work autosaves to localStorage.
         </p>
         <pre className="fallback__error">{this.state.error.message}</pre>
         <div className="fallback__actions">
           <button type="button" className="fallback__btn" onClick={this.reset}>
             Retry
           </button>
-          <button type="button" className="fallback__btn fallback__btn--primary" onClick={this.reload}>
+          <button
+            type="button"
+            className="fallback__btn fallback__btn--primary"
+            onClick={this.reload}
+          >
             Reload page
           </button>
         </div>

@@ -33,14 +33,7 @@ export const worldToGridZ = (z: number): number => Math.round(z / STUD_PITCH_MM)
 
 // ---------- Public brick model ----------
 
-export type {
-  RectDef,
-  RoundDef,
-  SlopeDef,
-  CurveDef,
-  ShapeDef,
-  Footprint,
-} from './shapeDef';
+export type { RectDef, RoundDef, SlopeDef, CurveDef, ShapeDef, Footprint } from './shapeDef';
 export { footprintOf } from './shapeDef';
 
 export {

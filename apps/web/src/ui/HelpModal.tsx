@@ -91,12 +91,7 @@ export function HelpModal({ open, onClose }: Props) {
       <div ref={panelRef} className="help-panel">
         <header className="help-panel__header">
           <h2 id="help-title">Brick Builder — keyboard & controls</h2>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="Close help"
-            onClick={onClose}
-          >
+          <button type="button" className="icon-btn" aria-label="Close help" onClick={onClose}>
             ✕
           </button>
         </header>

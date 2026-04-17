@@ -6,9 +6,7 @@
  * rather disable the option up front than let users hit a dead end.
  */
 
-export type PathTraceSupport =
-  | { supported: true }
-  | { supported: false; reason: string };
+export type PathTraceSupport = { supported: true } | { supported: false; reason: string };
 
 let cached: PathTraceSupport | null = null;
 
@@ -23,8 +21,7 @@ function probe(): PathTraceSupport {
     return { supported: false, reason: 'No DOM available' };
   }
   const canvas = document.createElement('canvas');
-  const gl =
-    canvas.getContext('webgl2') as WebGL2RenderingContext | null;
+  const gl = canvas.getContext('webgl2') as WebGL2RenderingContext | null;
   if (!gl) {
     return { supported: false, reason: 'WebGL2 unavailable on this device' };
   }

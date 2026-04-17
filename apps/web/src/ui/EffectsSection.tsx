@@ -49,12 +49,7 @@ export function EffectsSection() {
         checked={bloom}
         onChange={setBloom}
       />
-      <Toggle
-        label="Anti-aliasing"
-        hint="SMAA post-filter"
-        checked={smaa}
-        onChange={setSmaa}
-      />
+      <Toggle label="Anti-aliasing" hint="SMAA post-filter" checked={smaa} onChange={setSmaa} />
 
       <PathTraceButton renderMode={renderMode} setRenderMode={setRenderMode} />
     </div>

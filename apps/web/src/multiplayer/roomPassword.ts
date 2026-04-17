@@ -43,10 +43,7 @@ export async function rpcRemoveRoomPassword(
   return data === true;
 }
 
-export async function rpcJoinRoom(
-  roomId: string,
-  password: string | null,
-): Promise<boolean> {
+export async function rpcJoinRoom(roomId: string, password: string | null): Promise<boolean> {
   const client = supabase;
   if (!client) return false;
   const { data, error } = await client.rpc('join_room', {
@@ -65,10 +62,7 @@ export async function rpcJoinRoom(
  * present, null otherwise. Used by the kick-detection flow when we see the
  * room's password_set_at change.
  */
-export async function checkMembership(
-  roomId: string,
-  userId: string,
-): Promise<boolean> {
+export async function checkMembership(roomId: string, userId: string): Promise<boolean> {
   const client = supabase;
   if (!client) return false;
   const { data, error } = await client

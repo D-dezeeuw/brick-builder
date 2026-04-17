@@ -138,7 +138,12 @@ export const SHAPE_LABEL: Record<BrickShape, string> = {
   cheese_1x1: '30° cheese',
 };
 
-const rect = (w: number, d: number, layers: number, top: 'studs' | 'smooth' | 'jumper'): ShapeDef => ({
+const rect = (
+  w: number,
+  d: number,
+  layers: number,
+  top: 'studs' | 'smooth' | 'jumper',
+): ShapeDef => ({
   kind: 'rect',
   w,
   d,

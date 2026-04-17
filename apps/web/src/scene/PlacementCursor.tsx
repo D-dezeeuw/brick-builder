@@ -247,9 +247,7 @@ export function PlacementCursor() {
       const rz = fwdTmp.x;
 
       const pick = (x: number, z: number): { dgx: number; dgz: number } =>
-        Math.abs(x) >= Math.abs(z)
-          ? { dgx: Math.sign(x), dgz: 0 }
-          : { dgx: 0, dgz: Math.sign(z) };
+        Math.abs(x) >= Math.abs(z) ? { dgx: Math.sign(x), dgz: 0 } : { dgx: 0, dgz: Math.sign(z) };
 
       let step: { dgx: number; dgz: number };
       switch (e.key) {

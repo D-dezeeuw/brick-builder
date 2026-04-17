@@ -16,20 +16,20 @@ A web-based 3D editor for procedurally-generated LEGO-style creations. Every bri
 
 ## Keyboard shortcuts
 
-| Key | Action |
-|---|---|
-| Tap / left-click | Place the selected brick |
-| Right-click | Remove a brick |
-| `R` | Rotate the ghost |
-| `Q` / `E` | Lower / raise target layer |
-| `1` – `9` | Select a recent shape (hotbar) |
-| `⌘ / Ctrl + Z` | Undo |
-| `⌘ / Ctrl + Shift + Z` | Redo |
-| `?` | Show help modal |
-| Drag | Orbit camera |
-| Middle-drag | Pan |
-| Scroll wheel | Zoom |
-| Two-finger touch | Orbit + pinch zoom |
+| Key                    | Action                         |
+| ---------------------- | ------------------------------ |
+| Tap / left-click       | Place the selected brick       |
+| Right-click            | Remove a brick                 |
+| `R`                    | Rotate the ghost               |
+| `Q` / `E`              | Lower / raise target layer     |
+| `1` – `9`              | Select a recent shape (hotbar) |
+| `⌘ / Ctrl + Z`         | Undo                           |
+| `⌘ / Ctrl + Shift + Z` | Redo                           |
+| `?`                    | Show help modal                |
+| Drag                   | Orbit camera                   |
+| Middle-drag            | Pan                            |
+| Scroll wheel           | Zoom                           |
+| Two-finger touch       | Orbit + pinch zoom             |
 
 ## Tech stack
 
@@ -79,15 +79,15 @@ blockeditor/
 
 ## Phase roadmap (all complete)
 
-| # | Scope |
-|---|---|
-| 0 | Monorepo + CI + Netlify + hello-cube |
-| 1 | 1×1 brick MVP, baseplate, multi-layer stacking, 3D collision, mobile input |
-| 2 | 40-shape procedural catalog with anti-studs, categorised browser, rotation fix, undo/redo, hotkeys, auto-expanding baseplate, growable instance buckets, warm cache |
-| 3 | `MeshPhysicalMaterial` + clearcoat + sheen, studio HDRI, ACES tone mapping, quality presets, lighting sliders, N8AO + Bloom + SMAA (toggleable), per-instance jitter, 64-sample GPU path tracer |
-| 4 | Versioned schema, editable title + stats, localStorage autosave, lz-string URL share, JSON + PNG export (render-to-target), JSON import (picker + drag-drop) |
-| 5 | Live multiplayer via Supabase Postgres + Realtime, `?r=<id>` URLs, bidirectional sync with echo dedup, room-aware Share button |
-| 6 | Onboarding + `?` help modal, scene error boundary, WebGL 2 fallback, visible hotbar, this README |
+| #   | Scope                                                                                                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | Monorepo + CI + Netlify + hello-cube                                                                                                                                                            |
+| 1   | 1×1 brick MVP, baseplate, multi-layer stacking, 3D collision, mobile input                                                                                                                      |
+| 2   | 40-shape procedural catalog with anti-studs, categorised browser, rotation fix, undo/redo, hotkeys, auto-expanding baseplate, growable instance buckets, warm cache                             |
+| 3   | `MeshPhysicalMaterial` + clearcoat + sheen, studio HDRI, ACES tone mapping, quality presets, lighting sliders, N8AO + Bloom + SMAA (toggleable), per-instance jitter, 64-sample GPU path tracer |
+| 4   | Versioned schema, editable title + stats, localStorage autosave, lz-string URL share, JSON + PNG export (render-to-target), JSON import (picker + drag-drop)                                    |
+| 5   | Live multiplayer via Supabase Postgres + Realtime, `?r=<id>` URLs, bidirectional sync with echo dedup, room-aware Share button                                                                  |
+| 6   | Onboarding + `?` help modal, scene error boundary, WebGL 2 fallback, visible hotbar, this README                                                                                                |
 
 ### Deferred
 
@@ -108,6 +108,7 @@ Netlify auto-deploys from `main`. [`netlify.toml`](netlify.toml) builds only
 ## Contributing
 
 Small, focused PRs welcome. When adding a feature:
+
 - Favour editing existing files over creating new ones.
 - New brick shapes: one row in [`packages/shared/src/catalog.ts`](packages/shared/src/catalog.ts); the dispatcher does the rest.
 - New multiplayer mutations: extend both the applier in

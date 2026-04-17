@@ -54,12 +54,7 @@ export function PasswordPromptModal() {
       <div className="settings-panel" style={{ width: 'min(400px, 100%)' }}>
         <div className="settings-panel__header">
           <h2>Room password</h2>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="Cancel"
-            onClick={cancel}
-          >
+          <button type="button" className="icon-btn" aria-label="Cancel" onClick={cancel}>
             ✕
           </button>
         </div>
@@ -92,12 +87,7 @@ export function PasswordPromptModal() {
           />
           {error && <p className="password-input__error">{error}</p>}
           <div className="password-input__actions">
-            <button
-              type="button"
-              className="fallback__btn"
-              onClick={cancel}
-              disabled={submitting}
-            >
+            <button type="button" className="fallback__btn" onClick={cancel} disabled={submitting}>
               Cancel
             </button>
             <button
