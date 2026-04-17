@@ -96,6 +96,10 @@ type EditorState = {
   denoiseEnabled: boolean;
   /** When true, placing a brick plays the synthesized click. */
   placementSoundEnabled: boolean;
+  /** When true, rotating the camera plays the filtered-noise whoosh. */
+  wooshSoundEnabled: boolean;
+  /** Master audio mute — silences every sound the app makes. */
+  audioMuted: boolean;
   /**
    * When true, the WebGL canvas stops rendering after 30s of no user
    * input — the last frame stays visible on screen, GPU goes idle.
@@ -161,6 +165,8 @@ type EditorState = {
   setPathtracerMaxSamples: (n: number) => void;
   setDenoiseEnabled: (b: boolean) => void;
   setPlacementSoundEnabled: (b: boolean) => void;
+  setWooshSoundEnabled: (b: boolean) => void;
+  setAudioMuted: (b: boolean) => void;
   setIdlePauseEnabled: (b: boolean) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
@@ -219,6 +225,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pathtracerMaxSamples: 32,
   denoiseEnabled: true,
   placementSoundEnabled: true,
+  wooshSoundEnabled: true,
+  audioMuted: false,
   idlePauseEnabled: true,
   roomId: null,
   roomStatus: 'idle',
@@ -328,6 +336,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ placementSoundEnabled: b });
     setPlacementSoundEnabled(b);
   },
+  setWooshSoundEnabled: (b) => set({ wooshSoundEnabled: b }),
+  setAudioMuted: (b) => set({ audioMuted: b }),
   setIdlePauseEnabled: (b) => set({ idlePauseEnabled: b }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),

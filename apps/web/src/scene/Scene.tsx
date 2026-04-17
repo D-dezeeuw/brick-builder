@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
+import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, Quaternion, TOUCH } from 'three';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { CaptureBridge } from './CaptureBridge';
@@ -11,6 +11,7 @@ import { ResourceBoundary } from './ResourceBoundary';
 import { InstancedBricks } from '../bricks/InstancedBricks';
 import { useEditorStore } from '../state/editorStore';
 import { useIdlePause } from '../state/useIdlePause';
+import { setWooshSpeed } from '../state/wooshSound';
 import { QUALITY_CONFIGS } from '../state/quality';
 import { warmthToRgb } from './lightColor';
 
@@ -205,6 +206,7 @@ export function Scene() {
       )}
 
       <CaptureBridge />
+      <CameraWooshDriver />
 
       <OrbitControls
         enableDamping
@@ -225,4 +227,34 @@ export function Scene() {
       />
     </Canvas>
   );
+}
+
+/**
+ * Samples camera angular velocity each frame and feeds it to the
+ * woosh synth. Uses quaternion distance (not Euler deltas) so roll
+ * + yaw + pitch all contribute cleanly to one scalar speed.
+ * Exponentially smoothed so fast-paced damping doesn't buzz.
+ *
+ * Mounted inside the Canvas so useFrame has a renderer + clock.
+ */
+function CameraWooshDriver() {
+  const last = useRef<Quaternion>(new Quaternion());
+  const initialized = useRef(false);
+  const smoothed = useRef(0);
+  useFrame((state, dt) => {
+    const q = state.camera.quaternion;
+    if (!initialized.current) {
+      last.current.copy(q);
+      initialized.current = true;
+      return;
+    }
+    const angle = last.current.angleTo(q);
+    last.current.copy(q);
+    const safeDt = Math.max(dt, 1 / 240);
+    const instantaneous = angle / safeDt;
+    // EMA α ≈ 0.25 → short reaction time without jitter spikes.
+    smoothed.current = 0.25 * instantaneous + 0.75 * smoothed.current;
+    setWooshSpeed(smoothed.current);
+  });
+  return null;
 }

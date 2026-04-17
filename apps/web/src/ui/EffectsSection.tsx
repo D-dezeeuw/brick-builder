@@ -33,6 +33,8 @@ export function EffectsSection() {
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const denoise = useEditorStore((s) => s.denoiseEnabled);
   const sound = useEditorStore((s) => s.placementSoundEnabled);
+  const woosh = useEditorStore((s) => s.wooshSoundEnabled);
+  const muted = useEditorStore((s) => s.audioMuted);
   const idlePause = useEditorStore((s) => s.idlePauseEnabled);
   const setAo = useEditorStore((s) => s.setAoEnabled);
   const setBloom = useEditorStore((s) => s.setBloomEnabled);
@@ -41,6 +43,8 @@ export function EffectsSection() {
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
   const setDenoise = useEditorStore((s) => s.setDenoiseEnabled);
   const setSound = useEditorStore((s) => s.setPlacementSoundEnabled);
+  const setWoosh = useEditorStore((s) => s.setWooshSoundEnabled);
+  const setMuted = useEditorStore((s) => s.setAudioMuted);
   const setIdlePause = useEditorStore((s) => s.setIdlePauseEnabled);
   const support = getPathTraceSupport();
 
@@ -97,6 +101,18 @@ export function EffectsSection() {
         hint="Click feedback when you drop a brick"
         checked={sound}
         onChange={setSound}
+      />
+      <Toggle
+        label="Camera whoosh"
+        hint="Filtered noise that tracks rotation speed"
+        checked={woosh}
+        onChange={setWoosh}
+      />
+      <Toggle
+        label="Mute all sound"
+        hint="Master switch — overrides every other audio toggle"
+        checked={muted}
+        onChange={setMuted}
       />
       <Toggle
         label="Pause when idle"

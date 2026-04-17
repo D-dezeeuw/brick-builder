@@ -57,40 +57,13 @@ export function clearPlacementAnimations(): void {
 
 // ----- Sound -----
 
-let audioCtx: AudioContext | null = null;
+import { ensureAudioCtx, getNoiseBuffer } from './audio';
+import { useEditorStore } from './editorStore';
+
 let soundEnabled = true;
 
 export function setPlacementSoundEnabled(enabled: boolean): void {
   soundEnabled = enabled;
-}
-
-function ensureCtx(): AudioContext | null {
-  if (audioCtx) return audioCtx;
-  try {
-    const AC =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return null;
-    audioCtx = new AC();
-  } catch {
-    return null;
-  }
-  return audioCtx;
-}
-
-/**
- * 1s of white noise, regenerated once per AudioContext and reused
- * for every click's transient. Cheaper than creating new buffers.
- */
-let noiseBuffer: AudioBuffer | null = null;
-function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
-  if (noiseBuffer && noiseBuffer.sampleRate === ctx.sampleRate) return noiseBuffer;
-  const frames = ctx.sampleRate; // 1 second
-  const buf = ctx.createBuffer(1, frames, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
-  noiseBuffer = buf;
-  return buf;
 }
 
 /** Uniform random in [1 - amount, 1 + amount]. */
@@ -112,7 +85,8 @@ function jitter(amount: number): number {
  */
 export function playPlacementSound(size = 6, layers = 3): void {
   if (!soundEnabled) return;
-  const ctx = ensureCtx();
+  if (useEditorStore.getState().audioMuted) return;
+  const ctx = ensureAudioCtx();
   if (!ctx) return;
   // Browsers often suspend AudioContext until user interaction —
   // placement itself *is* a user gesture, so resume is permitted.
