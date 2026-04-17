@@ -118,8 +118,25 @@ type EditorState = {
    * button; range 1–128.
    */
   pathtracerMaxSamples: number;
-  /** When true, the bilateral denoise pass runs after convergence. */
+  /** When true, the post-convergence denoise pass runs. */
   denoiseEnabled: boolean;
+  /**
+   * Which filter the denoise pass applies.
+   * - `bilateral`: single 5×5 cross-bilateral (legacy, cheap).
+   * - `atrous`: 4-iteration À-Trous EAW with luma-guided edge weight +
+   *    shrinking sigma per iteration. Same spatial core SVGF uses. Best
+   *    default for matte + mixed transmission content.
+   * - `nlm`: non-local means (3×3 patches inside a 5×5 search). Best
+   *    edge preservation for repeated detail (stud grids). Most
+   *    expensive — one-shot only, ~tens of ms at 1080p.
+   */
+  denoiseAlgorithm: 'bilateral' | 'atrous' | 'nlm';
+  /**
+   * Scalar multiplier (0.2..3.0) applied to each algorithm's main edge-
+   * weight parameter. <1 = softer edges → more smoothing; >1 = stricter
+   * edges → less smoothing. 1.0 is the tuned default per algorithm.
+   */
+  denoiseStrength: number;
   /**
    * Render the baseplate slab + its stud field. Toggle off for clean
    * screenshots or to present a build as a standalone model.
@@ -239,6 +256,8 @@ type EditorState = {
   setPathtracerSamples: (n: number) => void;
   setPathtracerMaxSamples: (n: number) => void;
   setDenoiseEnabled: (b: boolean) => void;
+  setDenoiseAlgorithm: (a: EditorState['denoiseAlgorithm']) => void;
+  setDenoiseStrength: (n: number) => void;
   setBaseplateVisible: (b: boolean) => void;
   setStudsVisible: (b: boolean) => void;
   setPlacementSoundEnabled: (b: boolean) => void;
@@ -345,6 +364,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pathtracerSamples: 0,
   pathtracerMaxSamples: 32,
   denoiseEnabled: true,
+  denoiseAlgorithm: 'atrous',
+  denoiseStrength: 1.0,
   baseplateVisible: true,
   studsVisible: true,
   placementSoundEnabled: true,
@@ -505,6 +526,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setPathtracerMaxSamples: (n) =>
     set({ pathtracerMaxSamples: Math.max(1, Math.min(128, Math.round(n))) }),
   setDenoiseEnabled: (b) => set({ denoiseEnabled: b }),
+  setDenoiseAlgorithm: (a) => set({ denoiseAlgorithm: a }),
+  setDenoiseStrength: (n) => set({ denoiseStrength: Math.max(0.2, Math.min(3.0, n)) }),
   setBaseplateVisible: (b) => set({ baseplateVisible: b }),
   setStudsVisible: (b) => set({ studsVisible: b }),
   setPlacementSoundEnabled: (b) => {

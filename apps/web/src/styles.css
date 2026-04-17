@@ -847,6 +847,29 @@ body.space-panning .canvas-host > canvas:active {
   opacity: 0.45;
 }
 
+.settings-select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.settings-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .slider:disabled {
   cursor: not-allowed;
 }

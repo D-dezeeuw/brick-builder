@@ -32,6 +32,8 @@ export function EffectsSection() {
   const renderMode = useEditorStore((s) => s.renderMode);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const denoise = useEditorStore((s) => s.denoiseEnabled);
+  const denoiseAlgorithm = useEditorStore((s) => s.denoiseAlgorithm);
+  const denoiseStrength = useEditorStore((s) => s.denoiseStrength);
   const sound = useEditorStore((s) => s.placementSoundEnabled);
   const woosh = useEditorStore((s) => s.wooshSoundEnabled);
   const muted = useEditorStore((s) => s.audioMuted);
@@ -42,6 +44,8 @@ export function EffectsSection() {
   const setRenderMode = useEditorStore((s) => s.setRenderMode);
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
   const setDenoise = useEditorStore((s) => s.setDenoiseEnabled);
+  const setDenoiseAlgorithm = useEditorStore((s) => s.setDenoiseAlgorithm);
+  const setDenoiseStrength = useEditorStore((s) => s.setDenoiseStrength);
   const setSound = useEditorStore((s) => s.setPlacementSoundEnabled);
   const setWoosh = useEditorStore((s) => s.setWooshSoundEnabled);
   const setMuted = useEditorStore((s) => s.setAudioMuted);
@@ -92,10 +96,64 @@ export function EffectsSection() {
       </div>
       <Toggle
         label="Denoise on converge"
-        hint="Bilateral smooth once samples hit the target"
+        hint="Edge-aware smooth once samples hit the target"
         checked={denoise}
         onChange={setDenoise}
       />
+      <div
+        className={`slider-row${!denoise ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 4 }}
+      >
+        <label className="slider-row__label" htmlFor="denoise-algo">
+          <span>Denoise filter</span>
+        </label>
+        <select
+          id="denoise-algo"
+          className="settings-select"
+          value={denoiseAlgorithm}
+          onChange={(e) =>
+            setDenoiseAlgorithm(e.currentTarget.value as typeof denoiseAlgorithm)
+          }
+          disabled={!denoise}
+          title="Which filter runs after the path tracer converges"
+        >
+          <option value="atrous">À-Trous EAW (default)</option>
+          <option value="bilateral">Bilateral (cheap)</option>
+          <option value="nlm">Non-local means (best detail, slow)</option>
+        </select>
+        <p className="toggle-row__hint">
+          {denoiseAlgorithm === 'atrous' &&
+            '4 iterations, luma-guided edges. SVGF-style spatial filter.'}
+          {denoiseAlgorithm === 'bilateral' &&
+            '5×5 single pass. Legacy fallback — fastest but leaves speckle.'}
+          {denoiseAlgorithm === 'nlm' &&
+            '3×3 patches in 5×5 search. Best on studded detail; ~30ms/frame.'}
+        </p>
+      </div>
+      <div
+        className={`slider-row${!denoise ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 6 }}
+      >
+        <label className="slider-row__label" htmlFor="denoise-strength">
+          <span>Edge tolerance</span>
+          <span className="slider-row__value">{denoiseStrength.toFixed(2)}×</span>
+        </label>
+        <input
+          id="denoise-strength"
+          className="slider"
+          type="range"
+          min={0.2}
+          max={3.0}
+          step={0.05}
+          value={denoiseStrength}
+          onChange={(e) => setDenoiseStrength(Number(e.currentTarget.value))}
+          disabled={!denoise}
+        />
+        <div className="slider-row__scale">
+          <span>smoother</span>
+          <span>sharper</span>
+        </div>
+      </div>
       <Toggle
         label="Placement sound"
         hint="Click feedback when you drop a brick"

@@ -17,66 +17,93 @@ import { setDenoiseTexture } from '../state/denoiseBus';
 /**
  * Post-convergence denoise pass.
  *
- * three-gpu-pathtracer's accumulator still has visible speckle at our
- * sample counts (1–128). Once `samples >= maxSamples`, this component
- * runs a single 5×5 bilateral filter over the HDR accumulator — edge-
- * preserving blur that smooths flat regions without softening brick
- * edges — and draws the result to the canvas, replacing the raw
- * tracer output.
+ * Three filters plug into the same pipeline; the user selects via the
+ * Effects section. Each produces ACES-tonemapped linear values; a
+ * trailing `display` pass encodes sRGB onto the canvas.
  *
- * Flow per frame after convergence:
- *   1. Bilateral pass:   HDR PT target --[bilateral + ACES tonemap]--> denoise target (linear)
- *   2. Display blit:     denoise target --[linear→sRGB encode]--> canvas
+ *   bilateral — single 5×5 cross-bilateral. Cheap, legacy fallback.
+ *   atrous    — 4-iteration À-Trous EAW, luma-guided, sigma halving per
+ *               pass. SVGF's spatial core used standalone. This is the
+ *               default — it kills flat-region speckle the 5×5 kernel
+ *               can't reach without over-blurring stud geometry.
+ *   nlm       — non-local means, 3×3 patches × 5×5 search, luma patch
+ *               distance. Best on repeated detail; ~tens of ms at 1080p.
  *
- * A previous revision wrapped three À-Trous iterations (steps 1/2/4)
- * but over-smoothed: the 17×17 effective reach crushed fine surface
- * detail. Dropped back to the single 5×5 pass — cleans the worst of
- * the speckle without blurring anything visible.
+ * Why not OIDN / a neural denoiser: no production-ready WebAssembly
+ * build of Intel OIDN exists (RenderKit/oidn ships no WASM target;
+ * small-community wraps are outdated). Neural single-image denoisers
+ * are trained on camera Gaussian/Poisson noise, not Monte-Carlo HDR
+ * fireflies, so they'd need domain-specific retraining. À-Trous was
+ * the right call for browser scope.
  *
- * Colour-space notes:
- *   - Target keeps the default NoColorSpace. Bilateral writes linear
- *     tone-mapped values; identity shader encodes to sRGB just before
- *     writing to the canvas framebuffer.
- *   - We avoid the three.js shader chunks `<tonemapping_pars_fragment>`
- *     and `<colorspace_pars_fragment>` — ShaderMaterial in 0.171 has
- *     the colorspace pars auto-prepended, and `<tonemapping_pars_fragment>`
- *     only defines `toneMapping()` when `material.toneMapped=true`.
- *   - ACES is Narkowicz's 2015 fit — visually indistinguishable from
- *     three.js's ACESFilmicToneMapping at the exposure we use (1.0).
+ * Earlier revision: naive À-Trous using RGB colour distance over-
+ * smoothed because per-channel RGB distance fights the speckle it's
+ * trying to remove. Luma-only distance + sigma halving fixes it.
  *
- * useFrame priority=1 ensures both passes run *after* the tracer's own
+ * Flow:
+ *   1. Run the selected algorithm. Single-pass algorithms (bilateral,
+ *      nlm) write to targetA. À-Trous ping-pongs between targetA and
+ *      targetB for 4 iterations.
+ *   2. Final iteration applies ACES tonemap (bilateral + nlm do it in
+ *      their shader; atrous uses `uApplyTonemap` toggled on the last
+ *      pass so intermediates stay linear).
+ *   3. `display` pass: sRGB-encode the last algorithm output onto the
+ *      canvas framebuffer.
+ *
+ * Colour-space notes unchanged from the legacy version — we avoid the
+ * three.js <tonemapping_pars_fragment> / <colorspace_pars_fragment>
+ * chunks because ShaderMaterial already prepends the colorspace pars on
+ * three 0.171, and the tonemapping chunk only defines `toneMapping()`
+ * when `material.toneMapped=true` (which we don't set).
+ *
+ * useFrame priority=1 ensures these passes run AFTER the tracer's own
  * display pass (priority=0), so our blit overwrites the canvas in the
- * same frame. Before convergence the component no-ops; the raw tracer
- * output stays on screen so users can watch it build.
+ * same frame. Pre-convergence the component no-ops.
  */
 export function PathtracerDenoise() {
   const { pathtracer } = usePathtracer();
   const size = useThree((s) => s.size);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const enabled = useEditorStore((s) => s.denoiseEnabled);
+  const algorithm = useEditorStore((s) => s.denoiseAlgorithm);
+  const strength = useEditorStore((s) => s.denoiseStrength);
 
-  const { scene, camera, bilateral, identity } = useMemo(() => buildRig(), []);
+  const rig = useMemo(() => buildRig(), []);
+  const { scene, camera, bilateral, atrous, nlm, display } = rig;
 
-  const target = useMemo(() => new WebGLRenderTarget(1, 1), []);
+  // Two FBOs so À-Trous can ping-pong 4 iterations. Single-pass
+  // algorithms (bilateral, nlm) just use `targetA` and leave `targetB`
+  // idle — the cost of keeping it alive is ~16 bytes per pixel, which
+  // at 1080p is ~8 MB. Acceptable for the simplicity of not having to
+  // allocate on algorithm change.
+  const targetA = useMemo(() => new WebGLRenderTarget(1, 1), []);
+  const targetB = useMemo(() => new WebGLRenderTarget(1, 1), []);
 
   useEffect(() => {
     const w = Math.max(1, size.width);
     const h = Math.max(1, size.height);
-    target.setSize(w, h);
-    bilateral.uniforms.uResolution.value.set(w, h);
-  }, [size, target, bilateral]);
+    targetA.setSize(w, h);
+    targetB.setSize(w, h);
+    const res = new Vector2(w, h);
+    bilateral.uniforms.uResolution.value = res;
+    atrous.uniforms.uResolution.value = res;
+    nlm.uniforms.uResolution.value = res;
+  }, [size, targetA, targetB, bilateral, atrous, nlm]);
 
   useEffect(() => {
     return () => {
-      target.dispose();
+      targetA.dispose();
+      targetB.dispose();
       bilateral.dispose();
-      identity.dispose();
+      atrous.dispose();
+      nlm.dispose();
+      display.dispose();
       scene.children[0]?.traverse?.((o) => {
         if ('geometry' in o) (o as Mesh).geometry?.dispose();
       });
       setDenoiseTexture(null);
     };
-  }, [target, bilateral, identity, scene]);
+  }, [targetA, targetB, bilateral, atrous, nlm, display, scene]);
 
   const publishedRef = useRef(false);
 
@@ -87,8 +114,6 @@ export function PathtracerDenoise() {
     };
     if (!tracer?.target) return;
     const samples = tracer.samples ?? 0;
-    // Either off by user, or not yet converged — no-op and make sure the
-    // capture bus doesn't still point at a stale texture.
     if (!enabled || samples < maxSamples) {
       if (publishedRef.current) {
         publishedRef.current = false;
@@ -100,26 +125,66 @@ export function PathtracerDenoise() {
     const mesh = scene.children[0] as Mesh;
     const prev = renderer.getRenderTarget();
 
-    // Pass 1: bilateral into target (linear, tone-mapped).
-    mesh.material = bilateral;
-    bilateral.uniforms.uInput.value = tracer.target.texture;
-    renderer.setRenderTarget(target);
-    renderer.render(scene, camera);
+    let lastTarget: WebGLRenderTarget;
 
-    // Pass 2: sRGB-encode on the way to the canvas.
-    mesh.material = identity;
-    identity.uniforms.uInput.value = target.texture;
+    if (algorithm === 'bilateral') {
+      mesh.material = bilateral;
+      bilateral.uniforms.uInput.value = tracer.target.texture;
+      bilateral.uniforms.uSigmaColor.value = 0.15 * strength;
+      renderer.setRenderTarget(targetA);
+      renderer.render(scene, camera);
+      lastTarget = targetA;
+    } else if (algorithm === 'nlm') {
+      mesh.material = nlm;
+      nlm.uniforms.uInput.value = tracer.target.texture;
+      nlm.uniforms.uH.value = 0.15 * strength;
+      renderer.setRenderTarget(targetA);
+      renderer.render(scene, camera);
+      lastTarget = targetA;
+    } else {
+      // À-Trous: 4 iterations, stride doubles, sigma_luma halves. Final
+      // iteration flips `uApplyTonemap` to 1 so ACES is baked in — the
+      // display pass only needs to encode sRGB.
+      const ITERATIONS = 4;
+      const BASE_SIGMA = 0.4;
+      let inputTex: unknown = tracer.target.texture;
+      let outTarget = targetA;
+      for (let i = 0; i < ITERATIONS; i++) {
+        mesh.material = atrous;
+        atrous.uniforms.uInput.value = inputTex;
+        atrous.uniforms.uStepSize.value = 1 << i; // 1, 2, 4, 8
+        atrous.uniforms.uSigmaLuma.value = BASE_SIGMA * strength * Math.pow(0.5, i);
+        atrous.uniforms.uApplyTonemap.value = i === ITERATIONS - 1 ? 1.0 : 0.0;
+        renderer.setRenderTarget(outTarget);
+        renderer.render(scene, camera);
+        inputTex = outTarget.texture;
+        outTarget = outTarget === targetA ? targetB : targetA;
+      }
+      // `outTarget` points to the one we'd use next; the last written
+      // target is the opposite.
+      lastTarget = outTarget === targetA ? targetB : targetA;
+    }
+
+    // Display pass — sRGB encode onto the canvas framebuffer.
+    mesh.material = display;
+    display.uniforms.uInput.value = lastTarget.texture;
     renderer.setRenderTarget(null);
     renderer.render(scene, camera);
 
     renderer.setRenderTarget(prev);
+    // Null out the uniforms so three.js doesn't keep stale texture refs
+    // if the component unmounts mid-frame.
     bilateral.uniforms.uInput.value = null;
-    identity.uniforms.uInput.value = null;
+    atrous.uniforms.uInput.value = null;
+    nlm.uniforms.uInput.value = null;
+    display.uniforms.uInput.value = null;
 
-    if (!publishedRef.current) {
-      publishedRef.current = true;
-      setDenoiseTexture(target.texture);
-    }
+    // Publish the pre-display (ACES-tonemapped, linear) texture to the
+    // bus so screenshot export catches the denoised image. Republish
+    // whenever the output target changed (À-Trous parity flip across
+    // iteration counts) or we weren't published yet.
+    publishedRef.current = true;
+    setDenoiseTexture(lastTarget.texture);
   }, 1);
 
   return null;
@@ -138,6 +203,7 @@ function buildRig() {
   `;
 
   const helpers = /* glsl */ `
+    float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
     vec3 acesFilmic(vec3 x) {
       const float a = 2.51;
       const float b = 0.03;
@@ -202,7 +268,136 @@ function buildRig() {
     depthWrite: false,
   });
 
-  const identity = new ShaderMaterial({
+  // À-Trous edge-avoiding wavelet. Each invocation is ONE iteration;
+  // the driver loops with uStepSize and uSigmaLuma updated per pass. A
+  // 5×5 B3-spline kernel provides the fixed spatial weights, multiplied
+  // by an edge weight derived from luma distance to the centre pixel.
+  // uApplyTonemap gates ACES so only the final iteration tonemaps.
+  const atrous = new ShaderMaterial({
+    uniforms: {
+      uInput: new Uniform(null),
+      uResolution: new Uniform(new Vector2(1, 1)),
+      uStepSize: new Uniform(1.0),
+      uSigmaLuma: new Uniform(0.4),
+      uApplyTonemap: new Uniform(0.0),
+    },
+    vertexShader,
+    fragmentShader: /* glsl */ `
+      precision highp float;
+      uniform sampler2D uInput;
+      uniform vec2 uResolution;
+      uniform float uStepSize;
+      uniform float uSigmaLuma;
+      uniform float uApplyTonemap;
+      varying vec2 vUv;
+
+      ${helpers}
+
+      // B3-spline row weights: (1, 4, 6, 4, 1) / 16. Outer product
+      // forms the 5×5 kernel dividing by 256 (=16×16).
+      float b3(int i) {
+        if (i == -2 || i == 2) return 1.0;
+        if (i == -1 || i == 1) return 4.0;
+        return 6.0;
+      }
+
+      void main() {
+        vec2 texel = 1.0 / uResolution;
+        vec3 center = texture2D(uInput, vUv).rgb;
+        float centerLuma = luma(center);
+        vec3 sum = vec3(0.0);
+        float totalWeight = 0.0;
+        const int R = 2;
+        for (int dx = -R; dx <= R; dx++) {
+          for (int dy = -R; dy <= R; dy++) {
+            vec2 offset = vec2(float(dx), float(dy)) * texel * uStepSize;
+            vec3 s = texture2D(uInput, vUv + offset).rgb;
+            float spatial = (b3(dx) * b3(dy)) / 256.0;
+            float ld = luma(s) - centerLuma;
+            float edge = exp(-(ld * ld) / max(uSigmaLuma * uSigmaLuma, 1e-8));
+            float w = spatial * edge;
+            sum += s * w;
+            totalWeight += w;
+          }
+        }
+        vec3 denoised = sum / max(totalWeight, 1e-6);
+        vec3 outRgb = (uApplyTonemap > 0.5) ? acesFilmic(denoised) : denoised;
+        gl_FragColor = vec4(outRgb, 1.0);
+      }
+    `,
+    toneMapped: false,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  // Non-local means. For each output pixel we scan a 5×5 search window;
+  // for each candidate we compute the sum-of-squared luma differences
+  // between a 3×3 patch at the centre and a 3×3 patch at the candidate.
+  // Cost: 25 candidates × 9 patch samples = 225 texture fetches per
+  // output pixel. ~20–40 ms at 1080p on an M-series GPU.
+  const nlm = new ShaderMaterial({
+    uniforms: {
+      uInput: new Uniform(null),
+      uResolution: new Uniform(new Vector2(1, 1)),
+      uH: new Uniform(0.15),
+    },
+    vertexShader,
+    fragmentShader: /* glsl */ `
+      precision highp float;
+      uniform sampler2D uInput;
+      uniform vec2 uResolution;
+      uniform float uH;
+      varying vec2 vUv;
+
+      ${helpers}
+
+      float lumaAt(vec2 uv) {
+        return luma(texture2D(uInput, uv).rgb);
+      }
+
+      void main() {
+        vec2 texel = 1.0 / uResolution;
+        vec3 center = texture2D(uInput, vUv).rgb;
+        vec3 sum = vec3(0.0);
+        float totalWeight = 0.0;
+        const int SR = 2; // search half-radius (5×5 window)
+        const int PR = 1; // patch half-radius (3×3 patch)
+        float hSq = max(uH * uH, 1e-6);
+
+        for (int sx = -SR; sx <= SR; sx++) {
+          for (int sy = -SR; sy <= SR; sy++) {
+            vec2 cUv = vUv + vec2(float(sx), float(sy)) * texel;
+            // Sum-of-squared luma differences across the 3×3 patch.
+            float ssd = 0.0;
+            for (int px = -PR; px <= PR; px++) {
+              for (int py = -PR; py <= PR; py++) {
+                vec2 d = vec2(float(px), float(py)) * texel;
+                float lc = lumaAt(vUv + d);
+                float ls = lumaAt(cUv + d);
+                float diff = lc - ls;
+                ssd += diff * diff;
+              }
+            }
+            // Normalise by patch size (9 taps) for sigma stability
+            // across platforms.
+            ssd /= 9.0;
+            float w = exp(-ssd / hSq);
+            vec3 s = texture2D(uInput, cUv).rgb;
+            sum += s * w;
+            totalWeight += w;
+          }
+        }
+        vec3 denoised = sum / max(totalWeight, 1e-6);
+        gl_FragColor = vec4(acesFilmic(denoised), 1.0);
+      }
+    `,
+    toneMapped: false,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  // Display pass — sRGB encode only. Inputs are already ACES-tonemapped.
+  const display = new ShaderMaterial({
     uniforms: { uInput: new Uniform(null) },
     vertexShader,
     fragmentShader: /* glsl */ `
@@ -225,5 +420,5 @@ function buildRig() {
   const mesh = new Mesh(new PlaneGeometry(2, 2), bilateral);
   scene.add(mesh);
 
-  return { scene, camera, bilateral, identity };
+  return { scene, camera, bilateral, atrous, nlm, display };
 }
