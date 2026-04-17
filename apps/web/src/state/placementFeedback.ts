@@ -5,15 +5,22 @@
  *
  * The click is two parallel voices summed at play time — no audio
  * assets:
- *   1) Noise burst, bandpassed around ~2.5 kHz — the mechanical
- *      transient ("tack") of the impact. ~25 ms decay.
- *   2) Sine body at ~1.8 kHz sweeping down to ~1.4 kHz — the hollow
- *      resonance of the brick shell. ~60 ms decay.
+ *   1) Noise burst, bandpassed — the mechanical transient ("tack")
+ *      of the impact.
+ *   2) Sine body sweeping down — the hollow resonance of the brick
+ *      shell.
  *
- * Each play jitters a handful of the parameters (centre frequency,
- * sweep, gain, duration) inside ±10% of nominal so repeated clicks
- * don't feel mechanical. That's the payoff for procedural synthesis:
- * no sample banks to rotate through, and each click is uniquely tuned.
+ * Both voices are scaled by the brick's footprint volume
+ * (w × d × layers). Small pieces get a higher-pitched, shorter,
+ * less-hollow click; big pieces get a lower, longer, more-resonant
+ * thud. Matches the intuition that physics works on real plastic:
+ * a 1×1 stud click-snap has almost no body; a 2×8 brick settling
+ * rings briefly.
+ *
+ * On top of the size-scaling we jitter every parameter ±10% per play
+ * so even successive identical bricks don't produce a metronomic
+ * click. That's the payoff for procedural synthesis — no sample
+ * banks to rotate through, each click is uniquely tuned.
  */
 
 const ANIMATION_DURATION_MS = 180;
@@ -91,7 +98,13 @@ function jitter(amount: number): number {
   return 1 + (Math.random() * 2 - 1) * amount;
 }
 
-export function playPlacementSound(): void {
+/**
+ * Play the placement click. `size` is the brick's footprint volume
+ * (`w × d × layers` in stud cells). Defaulted to 6 (≈1×2 brick) for
+ * callers that don't have shape info. Expected range in our catalog:
+ * 1 (1×1 plate) → 48 (2×8 brick).
+ */
+export function playPlacementSound(size = 6): void {
   if (!soundEnabled) return;
   const ctx = ensureCtx();
   if (!ctx) return;
@@ -102,31 +115,40 @@ export function playPlacementSound(): void {
   const now = ctx.currentTime;
   const dest = ctx.destination;
 
-  // Per-click randomness. ±8% on pitch reads as "different bricks
-  // made of the same plastic" rather than "different instruments".
-  // Anything wider starts to sound like a slide whistle.
-  const bodyFreq = 1800 * jitter(0.08);
-  const bodyEndFreq = bodyFreq * 0.78; // proportional downward sweep
-  const bodyDecay = 0.06 * jitter(0.15);
-  const tackFreq = 2500 * jitter(0.05);
-  const tackDecay = 0.025 * jitter(0.2);
+  // Logarithmic size mapping. `norm` is ~0 for the smallest piece
+  // we have (1×1 plate) and ~1 for the biggest (2×8 brick). log is
+  // used because perception of size/pitch is roughly logarithmic.
+  const norm = Math.max(0, Math.min(1, Math.log(Math.max(1, size)) / Math.log(48)));
+
+  // Per-click randomness applied on top of the size scaling. ±8%
+  // pitch reads as "different bricks made of the same plastic"
+  // rather than "different instruments". Wider would sound like a
+  // slide whistle.
+  const bodyFreq = (2500 - norm * 1000) * jitter(0.08);
+  const bodyEndFreq = bodyFreq * (0.82 - norm * 0.1); // bigger = bigger pitch drop
+  const bodyDecay = (0.03 + norm * 0.05) * jitter(0.15); // 30→80 ms
+  const bodyGainBase = 0.08 + norm * 0.12; // small = thin, large = full body
+  const tackFreq = (3200 - norm * 1000) * jitter(0.05);
+  const tackDecay = (0.015 + norm * 0.02) * jitter(0.2); // 15→35 ms
+  const tackGainBase = 0.32 - norm * 0.08; // small pieces lean on the tack
+  const bodyAttack = 0.002 + norm * 0.003; // bigger = slightly softer onset
   const masterGain = jitter(0.1);
 
   // --- Voice 1: noise transient (the "tack") ---
   const noise = ctx.createBufferSource();
   noise.buffer = getNoiseBuffer(ctx);
-  // Random offset into the noise buffer gives each click a different
-  // micro-texture even though the buffer itself is recycled.
   noise.loop = false;
   const noiseFilter = ctx.createBiquadFilter();
   noiseFilter.type = 'bandpass';
   noiseFilter.frequency.value = tackFreq;
   noiseFilter.Q.value = 1.5;
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.28 * masterGain, now);
+  noiseGain.gain.setValueAtTime(tackGainBase * masterGain, now);
   noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + tackDecay);
   noise.connect(noiseFilter).connect(noiseGain).connect(dest);
-  const offset = Math.random() * 0.9; // pick a random slice of the 1s buffer
+  // Random slice of the 1s cached noise buffer keeps the micro-
+  // texture different each click even though the buffer is reused.
+  const offset = Math.random() * 0.9;
   noise.start(now, offset, tackDecay + 0.01);
 
   // --- Voice 2: sine body resonance (the "hollow") ---
@@ -136,7 +158,7 @@ export function playPlacementSound(): void {
   body.frequency.exponentialRampToValueAtTime(bodyEndFreq, now + bodyDecay);
   const bodyGain = ctx.createGain();
   bodyGain.gain.setValueAtTime(0, now);
-  bodyGain.gain.linearRampToValueAtTime(0.16 * masterGain, now + 0.003);
+  bodyGain.gain.linearRampToValueAtTime(bodyGainBase * masterGain, now + bodyAttack);
   bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + bodyDecay);
   body.connect(bodyGain).connect(dest);
   body.start(now);

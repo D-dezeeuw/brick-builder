@@ -1,4 +1,4 @@
-import type { Brick, Creation } from '@brick/shared';
+import { SHAPE_CATALOG, footprintOf, type Brick, type Creation } from '@brick/shared';
 import { useEditorStore } from './editorStore';
 import { markPlaced, playPlacementSound } from './placementFeedback';
 
@@ -61,9 +61,11 @@ export function placeBrick(input: PlacementInput): string | null {
 
   // Feedback — register the drop-in animation and fire the click
   // sound. Inbound remote placements skip this (see roomSync), so
-  // only the local builder hears and sees the flourish.
+  // only the local builder hears and sees the flourish. Sound is
+  // size-scaled: tiny plate → crisp tick, big brick → fuller thud.
   markPlaced(id);
-  playPlacementSound();
+  const fp = footprintOf(SHAPE_CATALOG[input.shape]);
+  playPlacementSound(fp.w * fp.d * fp.layers);
 
   commandStack.run({
     do: () => {
