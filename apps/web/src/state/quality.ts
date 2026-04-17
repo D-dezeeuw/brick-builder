@@ -14,6 +14,15 @@ export type QualityConfig = {
   useOrenNayar: boolean;
   /** Drei <Environment preset="studio"> for IBL. */
   useEnvironment: boolean;
+  /**
+   * Full physical glass for clear bricks — transmission + ior +
+   * thickness + attenuation, with the refraction buffer three.js
+   * allocates under the hood. May coexist noisily with the
+   * EffectComposer's MSAA-resolve blit (Chrome logs a GL warning),
+   * so we gate it to Ultra only; lower tiers fall back to
+   * clearcoated alpha blending.
+   */
+  useGlassTransmission: boolean;
   /** Directional-light shadow-map resolution (square). */
   shadowMapSize: number;
 };
@@ -23,24 +32,28 @@ export const QUALITY_CONFIGS: Record<Quality, QualityConfig> = {
     useClearcoat: false,
     useOrenNayar: false,
     useEnvironment: false,
+    useGlassTransmission: false,
     shadowMapSize: 512,
   },
   medium: {
     useClearcoat: false,
     useOrenNayar: true,
     useEnvironment: true,
+    useGlassTransmission: false,
     shadowMapSize: 1024,
   },
   high: {
     useClearcoat: true,
     useOrenNayar: true,
     useEnvironment: true,
+    useGlassTransmission: false,
     shadowMapSize: 2048,
   },
   ultra: {
     useClearcoat: true,
     useOrenNayar: true,
     useEnvironment: true,
+    useGlassTransmission: true,
     shadowMapSize: 4096,
   },
 };

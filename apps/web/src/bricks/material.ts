@@ -93,19 +93,47 @@ export function createBrickMaterial(
 ): MeshStandardMaterial {
   const color = new Color(colorHex);
 
-  // Clear-plastic variant (realtime). We deliberately avoid
-  // `transmission > 0` here: three.js's transmission path allocates a
-  // dedicated render target whose depth/stencil attachments collide
-  // with the EffectComposer's ping-pong buffers during MSAA-resolve
-  // blits, surfacing as the recurring
-  //   GL_INVALID_OPERATION: glBlitFramebuffer: Read and write depth
-  //   stencil attachments cannot be the same image.
-  // The path-traced clones (PathtracingExpansion) do still use full
-  // transmission + ior + attenuation — render mode doesn't run the
-  // rasterizer's post-FX, so the conflict doesn't apply there. Net
-  // result: realtime is plain alpha-blended glass, render mode gets
-  // the full physically-based refraction.
+  // Clear-plastic variants.
+  // Three tiers, chosen by quality:
+  //   Ultra: full physical glass — real refraction via transmission,
+  //     IOR + thickness + attenuation for tinted depth. May trigger
+  //     the "blitFramebuffer depth/stencil" GL warning when post-FX
+  //     is active (three.js's transmission render target fights the
+  //     EffectComposer). Users wanting a warning-free console can
+  //     drop to High.
+  //   High: clearcoated alpha-blend with iridescence for edge
+  //     sparkle. No transmission — no blit conflict.
+  //   Low/Medium: plain alpha-blended standard material.
+  // Path-traced clones (PathtracingExpansion) always use full
+  // transmission regardless — render mode bypasses post-FX, so the
+  // conflict doesn't apply there.
   if (transparent) {
+    if (quality.useGlassTransmission) {
+      const material = new MeshPhysicalMaterial({
+        color,
+        roughness: 0.05,
+        metalness: 0,
+        transmission: 1,
+        ior: 1.48, // ABS plastic
+        thickness: 4,
+        clearcoat: 1,
+        clearcoatRoughness: 0.03,
+        transparent: true,
+        // Attenuation tints the light as it passes through, so a
+        // blue glass brick reads as blue-through rather than
+        // alpha-mixed-blue. More convincing than uniform opacity.
+        attenuationDistance: 80,
+        attenuationColor: color,
+        // Iridescence gives the very thin pearly sheen you see at
+        // grazing angles on moulded clear plastic. Subtle at 0.3.
+        iridescence: 0.3,
+        iridescenceIOR: 1.3,
+      });
+      material.userData.clearBrick = true;
+      const cacheTag = 'brick-clear-transmission';
+      material.customProgramCacheKey = () => cacheTag;
+      return material;
+    }
     if (quality.useClearcoat) {
       const material = new MeshPhysicalMaterial({
         color,
@@ -114,7 +142,12 @@ export function createBrickMaterial(
         clearcoat: 1,
         clearcoatRoughness: 0.03,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.45,
+        // Boosts the specular-at-grazing-angle effect so non-
+        // ultra clear bricks still feel glassy without real
+        // transmission.
+        iridescence: 0.25,
+        iridescenceIOR: 1.3,
       });
       material.userData.clearBrick = true;
       const cacheTag = 'brick-clear-phys';

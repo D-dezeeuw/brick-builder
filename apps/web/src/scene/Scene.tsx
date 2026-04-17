@@ -151,6 +151,16 @@ export function Scene() {
       camera={{ position: [camDist, camDist * 0.9, camDist], fov: 45, near: 1, far: 5000 }}
       shadows={{ type: PCFSoftShadowMap }}
       frameloop={active ? 'always' : 'never'}
+      onCreated={({ gl }) => {
+        // Halve the internal transmission render target — three.js
+        // samples it to compute refraction for MeshPhysicalMaterial
+        // with transmission. Half-res is visually imperceptible on
+        // plastic-scale geometry and cuts the ping-pong blit cost
+        // (and mitigates the EffectComposer depth-stencil overlap
+        // warning when both systems share attachments).
+        (gl as unknown as { transmissionResolutionScale?: number }).transmissionResolutionScale =
+          0.5;
+      }}
       gl={{
         toneMapping: ACESFilmicToneMapping,
         toneMappingExposure: 1.0,
