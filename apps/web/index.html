@@ -14,11 +14,14 @@
         - 'unsafe-inline' on styles: Vite injects runtime styles
         - data: / blob:    procedural textures, PNG export object URLs
         - Supabase host:   REST + Realtime (wss) for multiplayer rooms
-        - raw.githack.com: drei's studio HDRI (pmndrs/drei-assets)
+        - *.githack.com: drei's studio HDRI (pmndrs/drei-assets).
+          raw.githack.com 301-redirects to rawcdn.githack.com at fetch
+          time and CSP checks each redirect hop, so both hosts need to
+          be allowed — wildcard covers future subdomain moves too.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://rmjbdmrgmigvhnsokufl.supabase.co wss://rmjbdmrgmigvhnsokufl.supabase.co https://raw.githack.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://rmjbdmrgmigvhnsokufl.supabase.co wss://rmjbdmrgmigvhnsokufl.supabase.co https://*.githack.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'"
     />
     <title>Brick Builder</title>
   </head>
