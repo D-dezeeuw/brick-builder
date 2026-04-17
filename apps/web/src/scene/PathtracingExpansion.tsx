@@ -5,9 +5,8 @@ import {
   InstancedMesh,
   Matrix4,
   Mesh,
-  MeshStandardMaterial,
+  MeshPhysicalMaterial,
   type Material,
-  type MeshPhysicalMaterial,
   type Texture,
 } from 'three';
 
@@ -48,8 +47,8 @@ export function PathtracingExpansion() {
   useLayoutEffect(() => {
     const clones: Mesh[] = [];
     const hidden: InstancedMesh[] = [];
-    const ptMaterials: MeshStandardMaterial[] = [];
-    const materialByKey = new Map<string, MeshStandardMaterial>();
+    const ptMaterials: MeshPhysicalMaterial[] = [];
+    const materialByKey = new Map<string, MeshPhysicalMaterial>();
     const m = new Matrix4();
 
     scene.traverse((obj) => {
@@ -88,19 +87,28 @@ export function PathtracingExpansion() {
 function getPtMaterial(
   source: Material | Material[],
   envMap: Texture | null,
-  cache: Map<string, MeshStandardMaterial>,
-): MeshStandardMaterial | null {
+  cache: Map<string, MeshPhysicalMaterial>,
+): MeshPhysicalMaterial | null {
   const base = Array.isArray(source) ? source[0] : source;
   const color = (base as MeshPhysicalMaterial).color;
   if (!color) return null;
   const key = `#${color.getHexString()}`;
   const existing = cache.get(key);
   if (existing) return existing;
-  const material = new MeshStandardMaterial({
+  // ABS plastic profile for the path tracer: a fairly smooth base
+  // (roughness 0.28) for soft body reflections, plus a clear coat
+  // layer with near-mirror roughness for the crisp LEGO sheen. Sheen
+  // is deliberately omitted — it's the MeshPhysicalMaterial feature
+  // that caused mobile shader-budget issues before and the PT's own
+  // BRDF doesn't support it in 0.0.23 anyway. A tiny emissive term
+  // keeps dark corners from crushing to pure black.
+  const material = new MeshPhysicalMaterial({
     color: color.clone(),
-    roughness: 0.4,
+    roughness: 0.28,
     metalness: 0,
-    emissive: new Color(color).multiplyScalar(0.03),
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.06,
+    emissive: new Color(color).multiplyScalar(0.02),
   });
   material.envMap = envMap;
   material.envMapIntensity = 1;
