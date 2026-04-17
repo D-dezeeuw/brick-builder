@@ -29,10 +29,13 @@ export function EffectsSection() {
   const bloom = useEditorStore((s) => s.bloomEnabled);
   const smaa = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
+  const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const setAo = useEditorStore((s) => s.setAoEnabled);
   const setBloom = useEditorStore((s) => s.setBloomEnabled);
   const setSmaa = useEditorStore((s) => s.setSmaaEnabled);
   const setRenderMode = useEditorStore((s) => s.setRenderMode);
+  const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
+  const support = getPathTraceSupport();
 
   return (
     <div className="sidebar-section">
@@ -51,7 +54,31 @@ export function EffectsSection() {
       />
       <Toggle label="Anti-aliasing" hint="SMAA post-filter" checked={smaa} onChange={setSmaa} />
 
-      <PathTraceButton renderMode={renderMode} setRenderMode={setRenderMode} />
+      <PathTraceButton renderMode={renderMode} setRenderMode={setRenderMode} support={support} />
+      <div
+        className={`slider-row${!support.supported ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 8 }}
+      >
+        <label className="slider-row__label" htmlFor="pt-samples">
+          <span>Render samples</span>
+          <span className="slider-row__value">{maxSamples}</span>
+        </label>
+        <input
+          id="pt-samples"
+          className="slider"
+          type="range"
+          min={1}
+          max={128}
+          step={1}
+          value={maxSamples}
+          onChange={(e) => setMaxSamples(Number(e.currentTarget.value))}
+          disabled={!support.supported}
+        />
+        <div className="slider-row__scale">
+          <span>1</span>
+          <span>128</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -59,11 +86,12 @@ export function EffectsSection() {
 function PathTraceButton({
   renderMode,
   setRenderMode,
+  support,
 }: {
   renderMode: boolean;
   setRenderMode: (b: boolean) => void;
+  support: ReturnType<typeof getPathTraceSupport>;
 }) {
-  const support = getPathTraceSupport();
   const disabled = !support.supported && !renderMode;
   const title = renderMode
     ? 'Exit path-traced render mode'

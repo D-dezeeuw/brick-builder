@@ -65,6 +65,13 @@ type EditorState = {
   renderMode: boolean;
   /** Live sample count reported by the path tracer; 0 when idle. */
   pathtracerSamples: number;
+  /**
+   * Max accumulation samples the pathtracer targets before it stops.
+   * Higher = cleaner but slower to converge; 32 is a solid default for
+   * this scene scale. User-adjustable via a slider next to the render
+   * button; range 1–128.
+   */
+  pathtracerMaxSamples: number;
 
   // --- Multiplayer / room state ---
   /** Current room id when connected; null for solo editing. */
@@ -117,6 +124,7 @@ type EditorState = {
   setSmaaEnabled: (b: boolean) => void;
   setRenderMode: (b: boolean) => void;
   setPathtracerSamples: (n: number) => void;
+  setPathtracerMaxSamples: (n: number) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
   setRoomPasswordState: (hasPassword: boolean, passwordSetAt: string | null) => void;
@@ -167,6 +175,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   smaaEnabled: EFFECT_DEFAULTS.high.smaa,
   renderMode: false,
   pathtracerSamples: 0,
+  pathtracerMaxSamples: 32,
   roomId: null,
   roomStatus: 'idle',
   roomHasPassword: false,
@@ -265,6 +274,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSmaaEnabled: (b) => set({ smaaEnabled: b }),
   setRenderMode: (b) => set({ renderMode: b, pathtracerSamples: 0 }),
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
+  setPathtracerMaxSamples: (n) =>
+    set({ pathtracerMaxSamples: Math.max(1, Math.min(128, Math.round(n))) }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
   setRoomPasswordState: (hasPassword, passwordSetAt) =>

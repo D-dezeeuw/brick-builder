@@ -27,6 +27,9 @@ const PathtracerBusBridge = lazy(() =>
 const PathtracingExpansion = lazy(() =>
   import('./PathtracingExpansion').then((m) => ({ default: m.PathtracingExpansion })),
 );
+const PathtracerDenoise = lazy(() =>
+  import('./PathtracerDenoise').then((m) => ({ default: m.PathtracerDenoise })),
+);
 
 const INITIAL_BASEPLATE_STUDS = 32;
 
@@ -39,6 +42,7 @@ export function Scene() {
   const bloomEnabled = useEditorStore((s) => s.bloomEnabled);
   const smaaEnabled = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
+  const pathtracerMaxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const config = QUALITY_CONFIGS[quality];
 
   const lightColor = useMemo(() => {
@@ -160,13 +164,21 @@ export function Scene() {
       {renderMode ? (
         <Suspense fallback={null}>
           {/* `samples` is the max accumulated — once reached, the tracer
-              stops and the GPU goes idle. 64 is the sweet spot for this
-              scale of geometry: near-clean image, no runaway battery drain. */}
-          <Pathtracer minSamples={4} samples={64} bounces={3} enabled>
+              stops and the GPU goes idle. User-configurable via the
+              slider in the settings modal; 32 by default, bounded to
+              1–128 in the store. minSamples is clamped so low maxes
+              don't wedge the tracer in a pre-display state. */}
+          <Pathtracer
+            minSamples={Math.min(4, pathtracerMaxSamples)}
+            samples={pathtracerMaxSamples}
+            bounces={3}
+            enabled
+          >
             {sceneContent}
             <PathtracingExpansion />
             <PathtracerSampleReporter />
             <PathtracerBusBridge />
+            <PathtracerDenoise />
           </Pathtracer>
         </Suspense>
       ) : (

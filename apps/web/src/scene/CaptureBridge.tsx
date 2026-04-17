@@ -5,6 +5,7 @@ import {
   OrthographicCamera,
   PlaneGeometry,
   Scene,
+  SRGBColorSpace,
   Vector2,
   WebGLRenderTarget,
   type Camera,
@@ -12,6 +13,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { claimPendingCapture } from '../state/captureBus';
+import { getDenoiseTexture } from '../state/denoiseBus';
 import { getActivePathtracer } from '../state/pathtracerBus';
 
 /**
@@ -45,13 +47,54 @@ async function captureToBlob(
   const width = Math.max(1, Math.round(size.x));
   const height = Math.max(1, Math.round(size.y));
 
+  // Prefer, in order:
+  //   1. The denoised target — already LDR sRGB, fastest readback, matches
+  //      what the user is looking at post-convergence.
+  //   2. The raw PT accumulator — HDR, needs a tone-map blit.
+  //   3. The rasterized scene — when not in render mode at all.
+  const denoise = getDenoiseTexture();
   const pathtracer = getActivePathtracer();
-  const pixels =
-    pathtracer && pathtracer.samples > 0
-      ? readTonemapped(gl, pathtracer.target.texture, width, height)
-      : rasterizeToPixels(gl, scene, camera, width, height);
+  let pixels: Uint8Array;
+  if (denoise) {
+    pixels = readDenoiseTexture(gl, denoise, width, height);
+  } else if (pathtracer && pathtracer.samples > 0) {
+    pixels = readTonemapped(gl, pathtracer.target.texture, width, height);
+  } else {
+    pixels = rasterizeToPixels(gl, scene, camera, width, height);
+  }
 
   return pixelsToPngBlob(pixels, width, height);
+}
+
+/**
+ * Identity blit from the denoise target. The source is already tone-
+ * mapped + sRGB-encoded, so we just copy it to an LDR target and read
+ * the bytes — no extra tone mapping.
+ */
+function readDenoiseTexture(
+  gl: WebGLRenderer,
+  source: Texture,
+  width: number,
+  height: number,
+): Uint8Array {
+  const rig = getBlitRig();
+  rig.material.toneMapped = false;
+  rig.material.map = source;
+  rig.material.needsUpdate = true;
+  const target = makeSrgbTarget(width, height);
+  const prev = gl.getRenderTarget();
+  try {
+    gl.setRenderTarget(target);
+    gl.render(rig.scene, rig.camera);
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+    return pixels;
+  } finally {
+    gl.setRenderTarget(prev);
+    rig.material.map = null;
+    rig.material.toneMapped = true;
+    target.dispose();
+  }
 }
 
 function rasterizeToPixels(
@@ -61,7 +104,7 @@ function rasterizeToPixels(
   width: number,
   height: number,
 ): Uint8Array {
-  const target = new WebGLRenderTarget(width, height);
+  const target = makeSrgbTarget(width, height);
   const prev = gl.getRenderTarget();
   try {
     gl.setRenderTarget(target);
@@ -73,6 +116,20 @@ function rasterizeToPixels(
     gl.setRenderTarget(prev);
     target.dispose();
   }
+}
+
+/**
+ * New WebGLRenderTargets default to NoColorSpace. Rendering into one
+ * writes linear values — which when saved as 8-bit PNG come out
+ * noticeably dark and desaturated vs. what the user sees on the sRGB
+ * canvas. Flagging the target's texture as SRGBColorSpace makes three
+ * apply the sRGB encode on the final fragment write, matching the
+ * on-screen result byte-for-byte.
+ */
+function makeSrgbTarget(width: number, height: number): WebGLRenderTarget {
+  const target = new WebGLRenderTarget(width, height);
+  target.texture.colorSpace = SRGBColorSpace;
+  return target;
 }
 
 /**
@@ -91,7 +148,7 @@ function readTonemapped(
   const rig = getBlitRig();
   rig.material.map = source;
   rig.material.needsUpdate = true;
-  const target = new WebGLRenderTarget(width, height);
+  const target = makeSrgbTarget(width, height);
   const prev = gl.getRenderTarget();
   try {
     gl.setRenderTarget(target);

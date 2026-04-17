@@ -962,8 +962,28 @@ body.space-panning .canvas-host > canvas:active {
   font-variant-numeric: tabular-nums;
 }
 
-.render-overlay__exit {
+.render-overlay__shot {
   margin-left: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background 0.08s ease;
+}
+
+.render-overlay__shot:hover {
+  background: var(--bg-panel-2);
+}
+
+.render-overlay__exit {
+  margin-left: 2px;
   padding: 3px 10px;
   font-size: 11px;
   border-radius: 999px;
