@@ -4,6 +4,7 @@ import { Environment, OrbitControls } from '@react-three/drei';
 import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, Quaternion, TOUCH } from 'three';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
+import { CameraViewBridge } from './CameraViewBridge';
 import { CaptureBridge } from './CaptureBridge';
 import { IdleFreeze } from './IdleFreeze';
 import { PlacementCursor } from './PlacementCursor';
@@ -216,9 +217,11 @@ export function Scene() {
       )}
 
       <CaptureBridge />
+      <CameraViewBridge />
       <CameraWooshDriver />
 
       <OrbitControls
+        makeDefault
         enableDamping
         dampingFactor={0.12}
         enablePan

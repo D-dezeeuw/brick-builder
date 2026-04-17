@@ -1,17 +1,22 @@
 import { create } from 'zustand';
 import {
   CURRENT_SCHEMA_VERSION,
+  DEFAULT_LAYER_ID,
   cellKey,
   footprintCells,
+  reconcileBrickLayers,
   type BaseplateBounds,
   type Brick,
   type BrickColor,
   type BrickShape,
   type Creation,
+  type Layer,
   type Rotation,
+  type SavedView,
 } from '@brick/shared';
 import { EFFECT_DEFAULTS } from './quality';
 import { setPlacementSoundEnabled } from './placementFeedback';
+import { useToastStore } from './toastStore';
 
 /**
  * Brick IDs: 10 random base36 chars from crypto.getRandomValues.
@@ -35,6 +40,14 @@ function nextId(): string {
   for (let i = 0; i < ID_LENGTH; i++) out += ID_ALPHABET[bytes[i] % ID_ALPHABET.length];
   return out;
 }
+
+/** Stable default layer — always present, cannot be deleted. */
+const DEFAULT_LAYER: Layer = {
+  id: DEFAULT_LAYER_ID,
+  name: 'Default',
+  visible: true,
+  locked: false,
+};
 
 type PlacementInput = Omit<Brick, 'id'>;
 
@@ -163,6 +176,13 @@ type EditorState = {
   /** Current baseplate extent in grid coords (auto-grows as bricks reach the edge). */
   baseplateBounds: BaseplateBounds;
 
+  /** Organisational layers (always at least the default layer). */
+  layers: Layer[];
+  /** Which layer new bricks are placed into. Must reference an entry in `layers`. */
+  activeLayerId: string;
+  /** Saved camera viewpoints — persisted with the creation JSON. */
+  views: SavedView[];
+
   addBrick: (input: PlacementInput) => string | null;
   /** Re-insert a brick with its original id (undo/redo path). Returns true on success. */
   restoreBrick: (brick: Brick) => boolean;
@@ -210,6 +230,27 @@ type EditorState = {
   setCarrying: (b: Brick | null) => void;
   /** Expand the baseplate if a placement would land within the edge margin. */
   expandBaseplateFor: (brick: Brick) => void;
+
+  // --- Layer actions ---
+  /** Create a layer and make it active. Returns the new layer's id. */
+  createLayer: (name: string) => string;
+  /** Rename a layer by id. No-op if the id is unknown. */
+  renameLayer: (id: string, name: string) => void;
+  /**
+   * Delete a layer by id. Bricks on the deleted layer get reassigned to
+   * the default layer. The default layer itself cannot be deleted.
+   */
+  deleteLayer: (id: string) => void;
+  setLayerVisibility: (id: string, visible: boolean) => void;
+  setLayerLocked: (id: string, locked: boolean) => void;
+  setActiveLayer: (id: string) => void;
+  /** Move a brick to a specific layer. No-op if ids are unknown or target is locked. */
+  assignBrickToLayer: (brickId: string, layerId: string) => void;
+
+  // --- Saved view actions ---
+  addView: (view: SavedView) => void;
+  renameView: (id: string, name: string) => void;
+  deleteView: (id: string) => void;
 
   /** Flatten current scene to a serialisable Creation (for save/share/export). */
   serializeCreation: () => Creation;
@@ -274,6 +315,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     maxGz: INITIAL_HALF,
   },
 
+  layers: [DEFAULT_LAYER],
+  activeLayerId: DEFAULT_LAYER_ID,
+  views: [],
+
   canPlaceAt: (shape, gx, gy, gz, rotation) => {
     if (gy < 0) return false;
     const { cellIndex } = get();
@@ -288,10 +333,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!get().canPlaceAt(input.shape, input.gx, input.gy, input.gz, input.rotation)) {
       return null;
     }
-    const { bricks, cellIndex } = get();
+    const { bricks, cellIndex, activeLayerId, layers } = get();
     const cells = footprintCells(input.shape, input.gx, input.gy, input.gz, input.rotation);
     const id = nextId();
-    const brick: Brick = { id, ...input };
+    // Stamp the active layer onto new bricks so subsequent visibility /
+    // lock toggles know which bucket they belong to. If the input
+    // already carries a layerId (e.g. restoring from undo) we trust it.
+    const layerId = input.layerId ?? activeLayerId;
+    // If the active layer is locked, refuse placement — surfacing a
+    // toast so the user knows why their click did nothing.
+    const activeLayer = layers.find((l) => l.id === activeLayerId);
+    if (activeLayer?.locked && !input.layerId) {
+      useToastStore.getState().show(`Layer "${activeLayer.name}" is locked`, 'error');
+      return null;
+    }
+    const brick: Brick = { id, ...input, layerId };
     const nextBricks = new Map(bricks);
     nextBricks.set(id, brick);
     const nextIndex = new Map(cellIndex);
@@ -422,21 +478,112 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     ),
   setCarrying: (b) => set({ carrying: b }),
 
+  createLayer: (name) => {
+    const id = nextId();
+    const trimmed = name.trim() || 'Untitled layer';
+    set((s) => ({
+      layers: [...s.layers, { id, name: trimmed, visible: true, locked: false }],
+      activeLayerId: id,
+    }));
+    return id;
+  },
+  renameLayer: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      layers: s.layers.map((l) => (l.id === id ? { ...l, name: trimmed } : l)),
+    }));
+  },
+  deleteLayer: (id) => {
+    if (id === DEFAULT_LAYER_ID) return;
+    set((s) => {
+      if (!s.layers.some((l) => l.id === id)) return s;
+      const nextLayers = s.layers.filter((l) => l.id !== id);
+      // Reassign any bricks on the deleted layer to the default layer.
+      let mutated = false;
+      const nextBricks = new Map(s.bricks);
+      for (const [bid, b] of nextBricks) {
+        if (b.layerId === id) {
+          nextBricks.set(bid, { ...b, layerId: DEFAULT_LAYER_ID });
+          mutated = true;
+        }
+      }
+      return {
+        layers: nextLayers,
+        activeLayerId: s.activeLayerId === id ? DEFAULT_LAYER_ID : s.activeLayerId,
+        bricks: mutated ? nextBricks : s.bricks,
+      };
+    });
+  },
+  setLayerVisibility: (id, visible) =>
+    set((s) => ({
+      layers: s.layers.map((l) => (l.id === id ? { ...l, visible } : l)),
+    })),
+  setLayerLocked: (id, locked) =>
+    set((s) => ({
+      layers: s.layers.map((l) => (l.id === id ? { ...l, locked } : l)),
+    })),
+  setActiveLayer: (id) =>
+    set((s) => (s.layers.some((l) => l.id === id) ? { activeLayerId: id } : s)),
+  assignBrickToLayer: (brickId, layerId) => {
+    set((s) => {
+      const b = s.bricks.get(brickId);
+      if (!b) return s;
+      if (!s.layers.some((l) => l.id === layerId)) return s;
+      const target = s.layers.find((l) => l.id === layerId);
+      if (target?.locked) return s;
+      const next = new Map(s.bricks);
+      next.set(brickId, { ...b, layerId });
+      return { bricks: next };
+    });
+  },
+
+  addView: (view) => set((s) => ({ views: [...s.views, view] })),
+  renameView: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      views: s.views.map((v) => (v.id === id ? { ...v, name: trimmed } : v)),
+    }));
+  },
+  deleteView: (id) => set((s) => ({ views: s.views.filter((v) => v.id !== id) })),
+
   serializeCreation: () => {
-    const { title, bricks, baseplateBounds } = get();
-    return {
+    const { title, bricks, baseplateBounds, layers, views } = get();
+    const out: Creation = {
       version: CURRENT_SCHEMA_VERSION,
       title,
       createdAt: Date.now(),
       bricks: Array.from(bricks.values()),
       baseplateBounds,
     };
+    // Only emit organisational metadata if the user has actually used
+    // it. Keeps the serialised form small + back-compat-friendly.
+    const nonDefaultLayers = layers.filter((l) => l.id !== DEFAULT_LAYER_ID);
+    const defaultMutated =
+      (layers[0]?.name !== DEFAULT_LAYER.name ||
+        layers[0]?.visible !== DEFAULT_LAYER.visible ||
+        layers[0]?.locked !== DEFAULT_LAYER.locked);
+    if (nonDefaultLayers.length > 0 || defaultMutated) out.layers = layers;
+    if (views.length > 0) out.views = views;
+    return out;
   },
 
   loadCreation: (creation) => {
     const nextBricks = new Map<string, Brick>();
     const nextIndex = new Map<string, string>();
-    for (const b of creation.bricks) {
+    // Default to the always-present layer when a creation predates layers.
+    const layers: Layer[] =
+      creation.layers && creation.layers.length > 0
+        ? creation.layers
+        : [DEFAULT_LAYER];
+    // Ensure the default layer is always present, so fallback reassignment
+    // on delete always has a home. (If a user hand-edits a JSON that
+    // omits the default, we synthesize it at the front.)
+    const hasDefault = layers.some((l) => l.id === DEFAULT_LAYER_ID);
+    const finalLayers = hasDefault ? layers : [DEFAULT_LAYER, ...layers];
+    const reconciled = reconcileBrickLayers(creation.bricks, finalLayers);
+    for (const b of reconciled) {
       nextBricks.set(b.id, b);
       const cells = footprintCells(b.shape, b.gx, b.gy, b.gz, b.rotation);
       for (const c of cells) nextIndex.set(cellKey(c.gx, c.gy, c.gz), b.id);
@@ -447,6 +594,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       cellIndex: nextIndex,
       baseplateBounds: creation.baseplateBounds,
       layerOffset: 0,
+      layers: finalLayers,
+      activeLayerId: finalLayers[0]?.id ?? DEFAULT_LAYER_ID,
+      views: creation.views ? [...creation.views] : [],
     });
   },
 

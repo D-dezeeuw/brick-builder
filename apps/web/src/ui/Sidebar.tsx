@@ -4,9 +4,10 @@ import { useEditorStore, type EditorMode } from '../state/editorStore';
 import { cancelCarry } from '../state/commandStack';
 import { BRICK_COLOR_HEX, BRICK_COLOR_ORDER } from '../state/constants';
 import { BrickBrowser } from './BrickBrowser';
+import { OrganisePanel } from './OrganisePanel';
 import { PartsPanel } from './PartsPanel';
 
-type SidebarTab = 'build' | 'parts';
+type SidebarTab = 'build' | 'organise' | 'parts';
 
 export function Sidebar() {
   const [tab, setTab] = useState<SidebarTab>('build');
@@ -21,13 +22,19 @@ export function Sidebar() {
           onSelect={setTab}
         />
         <SidebarTabButton
+          label="Organise"
+          value="organise"
+          active={tab === 'organise'}
+          onSelect={setTab}
+        />
+        <SidebarTabButton
           label="Parts"
           value="parts"
           active={tab === 'parts'}
           onSelect={setTab}
         />
       </div>
-      {tab === 'build' ? <BuildTab /> : <PartsPanel />}
+      {tab === 'build' ? <BuildTab /> : tab === 'organise' ? <OrganisePanel /> : <PartsPanel />}
     </div>
   );
 }

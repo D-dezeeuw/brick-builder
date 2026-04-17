@@ -85,6 +85,13 @@ function populateMesh(mesh: InstancedMesh, items: Brick[], shape: BrickShape): v
 
 export function InstancedBricks() {
   const bricks = useEditorStore((s) => s.bricks);
+  const layers = useEditorStore((s) => s.layers);
+
+  const hiddenLayerIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const l of layers) if (!l.visible) s.add(l.id);
+    return s;
+  }, [layers]);
 
   const buckets = useMemo(() => {
     const m = new Map<
@@ -92,6 +99,10 @@ export function InstancedBricks() {
       { shape: BrickShape; color: BrickColor; transparent: boolean; items: Brick[] }
     >();
     for (const brick of bricks.values()) {
+      // Skip bricks whose layer is toggled hidden. We leave them in
+      // cellIndex so stacking still respects them — you can't see it
+      // but you can't place into its cells either.
+      if (brick.layerId && hiddenLayerIds.has(brick.layerId)) continue;
       const transparent = brick.transparent === true;
       const key = bucketKey(brick.shape, brick.color, transparent);
       let entry = m.get(key);
@@ -102,7 +113,7 @@ export function InstancedBricks() {
       entry.items.push(brick);
     }
     return Array.from(m.values());
-  }, [bricks]);
+  }, [bricks, hiddenLayerIds]);
 
   return (
     <>

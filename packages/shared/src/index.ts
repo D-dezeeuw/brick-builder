@@ -68,6 +68,7 @@ export {
   MAX_BRICKS_PER_CREATION,
   MAX_TITLE_LENGTH,
   isBrick,
+  reconcileBrickLayers,
   sanitizeTitle,
   validateBaseplateBounds,
   validateCreation,
@@ -112,6 +113,37 @@ export type Brick = {
    * compat with creations saved before this existed.
    */
   transparent?: boolean;
+  /**
+   * Organisational layer this brick belongs to. Matches an entry in
+   * Creation.layers by id. Missing / unknown → treated as the default
+   * layer. Layers are a local-only organisational concept for now —
+   * not synced to Supabase.
+   */
+  layerId?: string;
+};
+
+/**
+ * Organisational layer — lets a user hide or lock a subset of bricks to
+ * work on the rest of the build. Layers are strictly client-side
+ * metadata: they travel with the Creation JSON but the live-multiplayer
+ * protocol doesn't know about them.
+ */
+export type Layer = {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+};
+
+/** The always-present layer id new bricks fall into when no other layer is active. */
+export const DEFAULT_LAYER_ID = 'default';
+
+/** A named camera snapshot — position + what it's looking at, in world mm. */
+export type SavedView = {
+  id: string;
+  name: string;
+  position: [number, number, number];
+  target: [number, number, number];
 };
 
 /** Cell key for collision lookups. */

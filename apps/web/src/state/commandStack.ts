@@ -1,6 +1,20 @@
 import { SHAPE_CATALOG, footprintOf, type Brick, type Creation } from '@brick/shared';
 import { useEditorStore } from './editorStore';
 import { markPlaced, playPlacementSound } from './placementFeedback';
+import { useToastStore } from './toastStore';
+
+/**
+ * Refuse an edit if the brick sits on a locked layer. Returns true when
+ * the edit is blocked — callers should bail. Emits a user-visible toast
+ * so the reason is obvious (otherwise the cursor just "doesn't work").
+ */
+function isLockedByLayer(brick: Brick): boolean {
+  if (!brick.layerId) return false;
+  const layer = useEditorStore.getState().layers.find((l) => l.id === brick.layerId);
+  if (!layer?.locked) return false;
+  useToastStore.getState().show(`Layer "${layer.name}" is locked`, 'error');
+  return true;
+}
 
 type Command = {
   do: () => void;
@@ -97,6 +111,7 @@ export function loadCreationWithHistoryReset(creation: Creation): void {
 export function eraseBrick(id: string): boolean {
   const snapshot = useEditorStore.getState().bricks.get(id);
   if (!snapshot) return false;
+  if (isLockedByLayer(snapshot)) return false;
   commandStack.run({
     do: () => {
       useEditorStore.getState().removeBrickById(snapshot.id);
@@ -124,6 +139,7 @@ export function pickUpBrick(id: string): boolean {
   const s = useEditorStore.getState();
   const snapshot = s.bricks.get(id);
   if (!snapshot) return false;
+  if (isLockedByLayer(snapshot)) return false;
 
   s.removeBrickById(snapshot.id);
   s.setCarrying(snapshot);
@@ -171,6 +187,10 @@ export function dropCarriedBrick(input: DropInput): boolean {
     gz: input.gz,
     rotation: input.rotation,
     transparent: input.transparent,
+    // Preserve the carried brick's layer assignment — a move should
+    // keep organisational state, not silently reassign to the active
+    // layer.
+    layerId: carried.layerId,
   };
 
   // Use the collision check in restoreBrick — it refuses overlap
