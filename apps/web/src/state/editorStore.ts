@@ -266,6 +266,19 @@ type EditorState = {
   selectAllOnLayer: (layerId: string) => void;
   /** Move every selected brick to a given layer. Locked target → no-op. */
   moveSelectionToLayer: (layerId: string) => void;
+  /**
+   * Toggle a (layer, shape, color, transparent) group as a unit. If every
+   * brick in the group is already selected, the call deselects all of
+   * them; otherwise it adds the missing ones. Used by the layer tree
+   * so clicking a group header acts like select-all / deselect-all for
+   * that slice.
+   */
+  toggleGroupSelection: (
+    layerId: string,
+    shape: BrickShape,
+    color: BrickColor,
+    transparent: boolean,
+  ) => void;
 
   /** Flatten current scene to a serialisable Creation (for save/share/export). */
   serializeCreation: () => Creation;
@@ -614,6 +627,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         mutated = true;
       }
       return mutated ? { bricks: nextBricks } : s;
+    });
+  },
+  toggleGroupSelection: (layerId, shape, color, transparent) => {
+    set((s) => {
+      const matches: string[] = [];
+      for (const b of s.bricks.values()) {
+        const bid = b.layerId ?? DEFAULT_LAYER_ID;
+        if (bid !== layerId) continue;
+        if (b.shape !== shape) continue;
+        if (b.color !== color) continue;
+        if ((b.transparent === true) !== transparent) continue;
+        matches.push(b.id);
+      }
+      if (matches.length === 0) return s;
+      // "All already selected" → deselect the group. Otherwise add the
+      // missing ids (existing selection is preserved).
+      const allSelected = matches.every((id) => s.selectedIds.has(id));
+      const next = new Set(s.selectedIds);
+      if (allSelected) {
+        for (const id of matches) next.delete(id);
+      } else {
+        for (const id of matches) next.add(id);
+      }
+      return { selectedIds: next };
     });
   },
 

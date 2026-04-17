@@ -1,11 +1,20 @@
 import { useMemo, useState } from 'react';
-import type { Layer, SavedView } from '@brick/shared';
+import { BRICK_COLOR_HEX, type Brick, type Layer, type SavedView } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
 import {
   requestApplyView,
   requestCaptureCurrentView,
 } from '../state/cameraViewBus';
+import {
+  buildTree,
+  groupDisplayName,
+  positionLabel,
+  shapeDisplayName,
+  type GroupKey,
+  type TreeGroup,
+  type TreeLayer,
+} from './organiseTree';
 
 /**
  * The Organise sidebar tab — layers (visibility, lock, active target) and
@@ -92,16 +101,27 @@ function LayersSection() {
   const bricks = useEditorStore((s) => s.bricks);
   const createLayer = useEditorStore((s) => s.createLayer);
 
-  // Brick counts per layer — cheap to recompute, keeps the UI honest
-  // without threading extra state through the store.
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const b of bricks.values()) {
-      const lid = b.layerId ?? layers[0]?.id ?? 'default';
-      m.set(lid, (m.get(lid) ?? 0) + 1);
-    }
-    return m;
-  }, [bricks, layers]);
+  const tree = useMemo(() => buildTree(bricks, layers), [bricks, layers]);
+
+  // Expansion state is local to the panel — not persisted, so a fresh
+  // session starts with everything collapsed (keeps large scenes snappy).
+  const [expandedLayers, setExpandedLayers] = useState<Set<string>>(() => new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<GroupKey>>(() => new Set());
+
+  const toggleLayer = (id: string) =>
+    setExpandedLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleGroup = (key: GroupKey) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <section className="organise-section">
@@ -116,19 +136,23 @@ function LayersSection() {
           + New
         </button>
       </header>
-      <div className="organise-list">
-        {layers.map((layer) => (
-          <LayerRow
-            key={layer.id}
-            layer={layer}
-            active={layer.id === activeLayerId}
-            count={counts.get(layer.id) ?? 0}
+      <div className="organise-list organise-tree">
+        {tree.map((node) => (
+          <LayerNode
+            key={node.layer.id}
+            node={node}
+            active={node.layer.id === activeLayerId}
+            expanded={expandedLayers.has(node.layer.id)}
+            expandedGroups={expandedGroups}
+            onToggleLayer={toggleLayer}
+            onToggleGroup={toggleGroup}
           />
         ))}
       </div>
       <p className="organise-hint">
         New bricks drop into the active layer. Hide a layer to work around it;
-        lock one to freeze it from edits.
+        lock one to freeze it from edits. Expand a layer to select individual
+        pieces from the tree.
       </p>
     </section>
   );
@@ -142,7 +166,64 @@ function defaultLayerName(existing: Layer[]): string {
   return `Layer ${n}`;
 }
 
-function LayerRow({ layer, active, count }: { layer: Layer; active: boolean; count: number }) {
+function LayerNode({
+  node,
+  active,
+  expanded,
+  expandedGroups,
+  onToggleLayer,
+  onToggleGroup,
+}: {
+  node: TreeLayer;
+  active: boolean;
+  expanded: boolean;
+  expandedGroups: Set<GroupKey>;
+  onToggleLayer: (id: string) => void;
+  onToggleGroup: (key: GroupKey) => void;
+}) {
+  const { layer, groups, total } = node;
+  return (
+    <div className="organise-node">
+      <LayerRow
+        layer={layer}
+        active={active}
+        count={total}
+        expanded={expanded}
+        hasChildren={groups.length > 0}
+        onToggle={() => onToggleLayer(layer.id)}
+      />
+      {expanded && groups.length > 0 && (
+        <div className="organise-tree__children">
+          {groups.map((group) => (
+            <GroupNode
+              key={group.key}
+              layerId={layer.id}
+              group={group}
+              expanded={expandedGroups.has(group.key)}
+              onToggle={() => onToggleGroup(group.key)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LayerRow({
+  layer,
+  active,
+  count,
+  expanded,
+  hasChildren,
+  onToggle,
+}: {
+  layer: Layer;
+  active: boolean;
+  count: number;
+  expanded: boolean;
+  hasChildren: boolean;
+  onToggle: () => void;
+}) {
   const setLayerVisibility = useEditorStore((s) => s.setLayerVisibility);
   const setLayerLocked = useEditorStore((s) => s.setLayerLocked);
   const setActiveLayer = useEditorStore((s) => s.setActiveLayer);
@@ -154,6 +235,17 @@ function LayerRow({ layer, active, count }: { layer: Layer; active: boolean; cou
 
   return (
     <div className={`organise-row organise-row--layer${active ? ' organise-row--active' : ''}`}>
+      <button
+        type="button"
+        className={`organise-chevron${hasChildren ? '' : ' organise-chevron--empty'}`}
+        onClick={onToggle}
+        disabled={!hasChildren}
+        aria-label={expanded ? 'Collapse layer' : 'Expand layer'}
+        aria-expanded={expanded}
+        title={hasChildren ? (expanded ? 'Collapse' : 'Expand') : 'Layer is empty'}
+      >
+        <ChevronIcon open={expanded} />
+      </button>
       <button
         type="button"
         className={`organise-icon-btn${layer.visible ? '' : ' organise-icon-btn--off'}`}
@@ -207,6 +299,103 @@ function LayerRow({ layer, active, count }: { layer: Layer; active: boolean; cou
         ×
       </button>
     </div>
+  );
+}
+
+function GroupNode({
+  layerId,
+  group,
+  expanded,
+  onToggle,
+}: {
+  layerId: string;
+  group: TreeGroup;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const toggleGroupSelection = useEditorStore((s) => s.toggleGroupSelection);
+
+  // Are all bricks in this group currently selected? Drives the
+  // select-all toggle feel — clicking the row deselects the whole
+  // group once it's fully selected.
+  const allSelected = useMemo(() => {
+    if (group.bricks.length === 0) return false;
+    for (const b of group.bricks) if (!selectedIds.has(b.id)) return false;
+    return true;
+  }, [group.bricks, selectedIds]);
+  const someSelected = useMemo(() => {
+    if (allSelected) return true;
+    for (const b of group.bricks) if (selectedIds.has(b.id)) return true;
+    return false;
+  }, [allSelected, group.bricks, selectedIds]);
+
+  const name = groupDisplayName(group.shape, group.color, group.transparent);
+  const hex = BRICK_COLOR_HEX[group.color];
+
+  return (
+    <div className="organise-node organise-node--group">
+      <div
+        className={`organise-row organise-row--group${allSelected ? ' organise-row--selected' : someSelected ? ' organise-row--partial' : ''}`}
+      >
+        <button
+          type="button"
+          className="organise-chevron"
+          onClick={onToggle}
+          aria-label={expanded ? 'Collapse group' : 'Expand group'}
+          aria-expanded={expanded}
+        >
+          <ChevronIcon open={expanded} />
+        </button>
+        <span
+          className={`organise-swatch${group.transparent ? ' organise-swatch--trans' : ''}`}
+          style={{ background: hex }}
+          aria-hidden="true"
+        />
+        <button
+          type="button"
+          className="organise-row__group-body"
+          onClick={() =>
+            toggleGroupSelection(layerId, group.shape, group.color, group.transparent)
+          }
+          title={
+            allSelected
+              ? `Deselect all ${group.bricks.length} ${name}`
+              : `Select all ${group.bricks.length} ${name}`
+          }
+        >
+          <span className="organise-row__group-name">{name}</span>
+          <span className="organise-row__group-count">× {group.bricks.length}</span>
+        </button>
+      </div>
+      {expanded && (
+        <div className="organise-tree__children organise-tree__children--bricks">
+          {group.bricks.map((brick) => (
+            <BrickNode key={brick.id} brick={brick} groupName={name} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BrickNode({ brick, groupName }: { brick: Brick; groupName: string }) {
+  const selected = useEditorStore((s) => s.selectedIds.has(brick.id));
+  const toggleBrickSelected = useEditorStore((s) => s.toggleBrickSelected);
+  const label = shapeDisplayName(brick.shape);
+  const pos = positionLabel(brick);
+
+  return (
+    <button
+      type="button"
+      className={`organise-row organise-row--brick${selected ? ' organise-row--selected' : ''}`}
+      onClick={() => toggleBrickSelected(brick.id)}
+      title={`${groupName} at ${pos}`}
+    >
+      <span className="organise-row__brick-dot" aria-hidden="true" />
+      <span className="organise-row__brick-name">{label}</span>
+      <span className="organise-row__brick-pos">{pos}</span>
+    </button>
   );
 }
 
@@ -399,6 +588,23 @@ function UnlockIcon() {
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
       <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
       <path d="M8 11V7a4 4 0 0 1 7.5-1.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  // Rotates via CSS transform so the open/close states read as one
+  // continuous widget rather than two different icons.
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="12"
+      height="12"
+      fill="none"
+      aria-hidden="true"
+      className={`organise-chevron__svg${open ? ' organise-chevron__svg--open' : ''}`}
+    >
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
