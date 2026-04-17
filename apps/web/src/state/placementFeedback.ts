@@ -116,23 +116,31 @@ export function playPlacementSound(size = 6): void {
   const dest = ctx.destination;
 
   // Logarithmic size mapping. `norm` is ~0 for the smallest piece
-  // we have (1×1 plate) and ~1 for the biggest (2×8 brick). log is
-  // used because perception of size/pitch is roughly logarithmic.
+  // we have (1×1 plate/tile/round) and ~1 for the biggest (2×8
+  // brick). log is used because perception of size/pitch is roughly
+  // logarithmic.
   const norm = Math.max(0, Math.min(1, Math.log(Math.max(1, size)) / Math.log(48)));
 
-  // Per-click randomness applied on top of the size scaling. ±8%
-  // pitch reads as "different bricks made of the same plastic"
-  // rather than "different instruments". Wider would sound like a
-  // slide whistle.
-  const bodyFreq = (2500 - norm * 1000) * jitter(0.08);
+  // Pitch interpolator uses a `pow(norm, 0.75)` curve so the small
+  // end stretches — 1×1 tiles/plates sit clearly above 1×1 bricks
+  // (which have size 3, norm ≈ 0.28). With linear interpolation the
+  // gap was ~280 Hz; curved it's ~380 Hz. Volume and decay stay
+  // linear because those don't need the extra spread.
+  const pitchCurve = Math.pow(norm, 0.75);
+
+  // Jitter tightened from ±8-20% down to ±2-5%. The looser numbers
+  // were masking the size-based pitch identity — a jittered-low
+  // 1×1 plate could overlap a jittered-high 1×1 brick. Now the size
+  // signal stays clean while each click still has a touch of life.
+  const bodyFreq = (2500 - pitchCurve * 1000) * jitter(0.02);
   const bodyEndFreq = bodyFreq * (0.82 - norm * 0.1); // bigger = bigger pitch drop
-  const bodyDecay = (0.03 + norm * 0.05) * jitter(0.15); // 30→80 ms
+  const bodyDecay = (0.03 + norm * 0.05) * jitter(0.04); // 30→80 ms
   const bodyGainBase = 0.08 + norm * 0.12; // small = thin, large = full body
-  const tackFreq = (3200 - norm * 1000) * jitter(0.05);
-  const tackDecay = (0.015 + norm * 0.02) * jitter(0.2); // 15→35 ms
+  const tackFreq = (3200 - pitchCurve * 1000) * jitter(0.015);
+  const tackDecay = (0.015 + norm * 0.02) * jitter(0.05); // 15→35 ms
   const tackGainBase = 0.32 - norm * 0.08; // small pieces lean on the tack
   const bodyAttack = 0.002 + norm * 0.003; // bigger = slightly softer onset
-  const masterGain = jitter(0.1);
+  const masterGain = jitter(0.025);
 
   // --- Voice 1: noise transient (the "tack") ---
   const noise = ctx.createBufferSource();
