@@ -109,40 +109,111 @@ export function eraseBrick(id: string): boolean {
 }
 
 /**
- * "Pick up" a placed brick: removes it from the scene and switches
- * the editor into Build mode with the brick's shape / colour /
- * rotation / transparent flag copied into the current selection. A
- * ghost of the picked brick then follows the cursor, ready to be
- * dropped somewhere else with a normal build-mode click.
+ * "Pick up" a placed brick and enter carrying mode.
  *
- * Undo restores the original brick at its exact old position so
- * Ctrl-Z after a pickup is a single "oh wait, put it back" step.
- * We deliberately do NOT revert the shape/color/rotation selection
- * changes — the user just intentionally adopted them.
+ * This is a session-level state transition, *not* a commandStack
+ * entry. The brick is removed from the scene and held in
+ * `state.carrying` until one of:
+ *   - `dropCarriedBrick` commits it at a new cell (pushes one
+ *     atomic "move" command)
+ *   - `cancelCarry` restores it in place (no history step)
+ * This way a completed move is a single Ctrl-Z step, and a
+ * cancelled move leaves the history untouched.
  */
 export function pickUpBrick(id: string): boolean {
-  const store = useEditorStore.getState();
-  const snapshot = store.bricks.get(id);
+  const s = useEditorStore.getState();
+  const snapshot = s.bricks.get(id);
   if (!snapshot) return false;
 
-  // Previous mode may or may not be 'select'; we still flip back to
-  // build on undo since the user was presumably picking up to move
-  // and undoing means "oops, put it back". Mode after undo = build
-  // is fine — they can re-enter hand mode if needed.
+  s.removeBrickById(snapshot.id);
+  s.setCarrying(snapshot);
+  s.setMode('build');
+  s.setShape(snapshot.shape);
+  s.setColor(snapshot.color);
+  s.setTransparentMode(snapshot.transparent === true);
+  // rotation isn't in the simple setter family — set directly.
+  useEditorStore.setState({ rotation: snapshot.rotation });
+  return true;
+}
+
+type DropInput = {
+  gx: number;
+  gy: number;
+  gz: number;
+  rotation: Brick['rotation'];
+  shape: Brick['shape'];
+  color: Brick['color'];
+  transparent: boolean;
+};
+
+/**
+ * Commit a carry into a single undoable "move" command.
+ *
+ * The dropped brick reuses the original id — peers see
+ * DELETE (from pickup) + INSERT (from drop) for the same id, which
+ * the outbound diff already handles correctly. Undo reverses the
+ * whole thing atomically.
+ *
+ * Returns false (and leaves the carrying state intact) if the drop
+ * target is blocked.
+ */
+export function dropCarriedBrick(input: DropInput): boolean {
+  const s = useEditorStore.getState();
+  const carried = s.carrying;
+  if (!carried) return false;
+
+  const dropped: Brick = {
+    id: carried.id,
+    shape: input.shape,
+    color: input.color,
+    gx: input.gx,
+    gy: input.gy,
+    gz: input.gz,
+    rotation: input.rotation,
+    transparent: input.transparent,
+  };
+
+  // Use the collision check in restoreBrick — it refuses overlap
+  // with existing bricks and leaves the store untouched on failure.
+  if (!s.restoreBrick(dropped)) return false;
+  s.setCarrying(null);
+  s.expandBaseplateFor(dropped);
+
   commandStack.run({
     do: () => {
-      const s = useEditorStore.getState();
-      s.removeBrickById(snapshot.id);
-      s.setMode('build');
-      s.setShape(snapshot.shape);
-      s.setColor(snapshot.color);
-      s.setTransparentMode(snapshot.transparent === true);
-      // rotation isn't in the simple setter family — set directly.
-      useEditorStore.setState({ rotation: snapshot.rotation });
+      // Redo: ensure state matches post-drop. Idempotent — if the
+      // brick is already where `dropped` says, nothing happens.
+      const st = useEditorStore.getState();
+      const current = st.bricks.get(dropped.id);
+      if (
+        current &&
+        current.gx === dropped.gx &&
+        current.gy === dropped.gy &&
+        current.gz === dropped.gz
+      ) {
+        return;
+      }
+      if (current) st.removeBrickById(dropped.id);
+      st.restoreBrick(dropped);
     },
     undo: () => {
-      useEditorStore.getState().restoreBrick(snapshot);
+      const st = useEditorStore.getState();
+      if (st.bricks.has(dropped.id)) st.removeBrickById(dropped.id);
+      st.restoreBrick(carried);
     },
   });
   return true;
+}
+
+/**
+ * Abandon a carry — put the brick back where it was and clear the
+ * carrying state. No history entry created. Safe to call when
+ * not carrying (no-op).
+ */
+export function cancelCarry(): void {
+  const s = useEditorStore.getState();
+  const carried = s.carrying;
+  if (!carried) return;
+  s.restoreBrick(carried);
+  s.setCarrying(null);
 }

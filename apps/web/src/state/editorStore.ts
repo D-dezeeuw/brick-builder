@@ -149,6 +149,15 @@ type EditorState = {
    * pointer move, after a successful place, and when leaving build mode.
    */
   placementOffset: { gx: number; gz: number };
+  /**
+   * Snapshot of a brick picked up via Hand mode but not yet dropped.
+   * When non-null the editor is mid-"move": the brick has been removed
+   * from the scene, a ghost of it follows the cursor in Build mode, and
+   * the next click drops it at the cursor (with a single atomic undo
+   * entry). Esc / Ctrl-Z / mode change while carrying cancels and
+   * restores the brick to its original cell without polluting history.
+   */
+  carrying: Brick | null;
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
   recentShapes: BrickShape[];
   /** Current baseplate extent in grid coords (auto-grows as bricks reach the edge). */
@@ -198,6 +207,7 @@ type EditorState = {
   resetLayer: () => void;
   bumpPlacementOffset: (dgx: number, dgz: number) => void;
   resetPlacementOffset: () => void;
+  setCarrying: (b: Brick | null) => void;
   /** Expand the baseplate if a placement would land within the edge margin. */
   expandBaseplateFor: (brick: Brick) => void;
 
@@ -255,6 +265,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   isRemoteApplying: false,
   layerOffset: 0,
   placementOffset: { gx: 0, gz: 0 },
+  carrying: null,
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
     minGx: -INITIAL_HALF,
@@ -409,6 +420,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         ? s
         : { placementOffset: { gx: 0, gz: 0 } },
     ),
+  setCarrying: (b) => set({ carrying: b }),
 
   serializeCreation: () => {
     const { title, bricks, baseplateBounds } = get();

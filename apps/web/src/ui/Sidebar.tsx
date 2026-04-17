@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { BrickColor } from '@brick/shared';
 import { useEditorStore, type EditorMode } from '../state/editorStore';
+import { cancelCarry } from '../state/commandStack';
 import { BRICK_COLOR_HEX, BRICK_COLOR_ORDER } from '../state/constants';
 import { BrickBrowser } from './BrickBrowser';
 
@@ -14,13 +15,31 @@ export function Sidebar() {
   const mirrorAxis = useEditorStore((s) => s.mirrorAxis);
   const setMirrorAxis = useEditorStore((s) => s.setMirrorAxis);
 
+  // Pressing a mode button while carrying abandons the carry — the
+  // brick returns to its original cell and the user's intent to
+  // switch modes wins. Nothing goes on the undo stack.
+  const handleModeChange = (next: EditorMode) => {
+    if (useEditorStore.getState().carrying) cancelCarry();
+    setMode(next);
+  };
+
   return (
     <div className="sidebar-content">
       <div className="sidebar-section">
         <h2 className="sidebar-heading">Mode</h2>
         <div className="mode-row" role="tablist" aria-label="Editor mode">
-          <ModeButton label="Build" value="build" active={mode === 'build'} onSelect={setMode} />
-          <ModeButton label="Erase" value="erase" active={mode === 'erase'} onSelect={setMode} />
+          <ModeButton
+            label="Build"
+            value="build"
+            active={mode === 'build'}
+            onSelect={handleModeChange}
+          />
+          <ModeButton
+            label="Erase"
+            value="erase"
+            active={mode === 'erase'}
+            onSelect={handleModeChange}
+          />
           <ModeButton
             label={
               <span className="mode-btn__hand">
@@ -30,7 +49,7 @@ export function Sidebar() {
             }
             value="select"
             active={mode === 'select'}
-            onSelect={setMode}
+            onSelect={handleModeChange}
           />
         </div>
       </div>

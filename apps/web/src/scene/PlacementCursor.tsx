@@ -11,7 +11,7 @@ import {
   type Brick,
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
-import { eraseBrick, pickUpBrick, placeBrick } from '../state/commandStack';
+import { dropCarriedBrick, eraseBrick, pickUpBrick, placeBrick } from '../state/commandStack';
 import { BRICK_COLOR_HEX } from '../state/constants';
 import { getGeometry } from '../bricks/geometry/builders';
 
@@ -216,6 +216,24 @@ export function PlacementCursor() {
       const primaryGx = h.gx + state.placementOffset.gx;
       const primaryGy = h.gy + state.layerOffset;
       const primaryGz = h.gz + state.placementOffset.gz;
+
+      // Carrying a picked-up brick? Commit the move as one atomic
+      // undo step and skip both the fresh-place and mirror paths —
+      // those don't make sense for a relocation.
+      if (state.carrying) {
+        dropCarriedBrick({
+          shape: state.selectedShape,
+          color: state.selectedColor,
+          gx: primaryGx,
+          gy: primaryGy,
+          gz: primaryGz,
+          rotation: state.rotation,
+          transparent: state.transparentMode,
+        });
+        state.resetPlacementOffset();
+        return;
+      }
+
       placeBrick({
         shape: state.selectedShape,
         color: state.selectedColor,

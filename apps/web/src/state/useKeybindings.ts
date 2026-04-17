@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useEditorStore } from './editorStore';
-import { commandStack } from './commandStack';
+import { cancelCarry, commandStack } from './commandStack';
 import { useHelpStore } from './helpStore';
 
 /** Global keyboard shortcuts. Ignores events from form fields. */
@@ -16,6 +16,15 @@ export function useKeybindings() {
       // Undo / Redo.
       const mod = e.metaKey || e.ctrlKey;
       if (mod && (e.key === 'z' || e.key === 'Z')) {
+        // Carrying a brick? Treat Ctrl-Z as "never mind, put it back"
+        // — restore the carried snapshot, don't consume history. Only
+        // the bare undo path does this; Ctrl-Shift-Z is a redo and
+        // never conflicts with carry.
+        if (!e.shiftKey && useEditorStore.getState().carrying) {
+          cancelCarry();
+          e.preventDefault();
+          return;
+        }
         if (e.shiftKey) commandStack.redo();
         else commandStack.undo();
         e.preventDefault();
@@ -36,6 +45,14 @@ export function useKeybindings() {
 
       // Plain-key shortcuts — ignore when a modifier is held.
       if (mod || e.altKey) return;
+
+      // Esc cancels an in-flight carry (brick returns to its original
+      // cell, no history step consumed).
+      if (e.key === 'Escape' && useEditorStore.getState().carrying) {
+        cancelCarry();
+        e.preventDefault();
+        return;
+      }
 
       const store = useEditorStore.getState();
 
