@@ -99,7 +99,10 @@ body,
   gap: 10px;
 }
 
-.top-bar__overflow-btn {
+/* Specificity bumped by the parent selector so this wins against the
+   generic `.icon-btn { display: inline-flex }` below in source order.
+   Without the prefix the kebab shows on desktop too. */
+.top-bar-right .top-bar__overflow-btn {
   display: none;
 }
 
@@ -2207,8 +2210,10 @@ body.space-panning .canvas-host > canvas:active {
   }
 
   /* Collapse the Room/Export/Share/Settings/Help cluster behind a single
-     kebab button. Keeps the top bar to ~3 visible controls on phones. */
-  .top-bar__overflow-btn {
+     kebab button. Keeps the top bar to ~3 visible controls on phones.
+     Matches the desktop selector's specificity so the cascade is
+     deterministic. */
+  .top-bar-right .top-bar__overflow-btn {
     display: inline-flex;
   }
 
