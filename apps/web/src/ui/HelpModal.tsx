@@ -29,12 +29,10 @@ const SECTIONS: Array<{
   {
     heading: 'Hand mode',
     rows: [
-      ['Click a brick', 'Select it'],
-      ['Arrow keys', 'Move selected ±1 stud (camera-relative)'],
-      ['Q / E', 'Lower / raise the selected brick'],
-      ['R', 'Rotate selected 90°'],
-      ['Delete / Backspace', 'Remove selected'],
-      ['Esc', 'Deselect'],
+      ['Click a brick', 'Pick it up — flips to Build, copies shape/colour/rotation'],
+      ['Next click', 'Drop the carried brick at the cursor'],
+      ['R / Q / E', 'Rotate / layer-down / layer-up the carried ghost'],
+      ['⌘ / Ctrl + Z', 'Undo the pickup — brick returns to its old spot'],
     ],
   },
   {

@@ -161,15 +161,10 @@ type EditorState = {
   /**
    * Apply a partial update to an existing brick (coords, rotation,
    * colour, shape, transparent). Fails if the new footprint collides
-   * with another brick or lands below the baseplate.
+   * with another brick or lands below the baseplate. Used by inbound
+   * room sync and by select/grab commands.
    */
   updateBrick: (id: string, patch: Partial<Omit<Brick, 'id'>>) => boolean;
-  /** Convenience: shift an existing brick by deltas. Same rejection rules as updateBrick. */
-  moveBrick: (id: string, dx: number, dy: number, dz: number) => boolean;
-
-  /** Currently selected brick in Hand/select mode. null when nothing is selected. */
-  selectedBrickId: string | null;
-  setSelectedBrickId: (id: string | null) => void;
 
   setTitle: (title: string) => void;
   setShape: (shape: BrickShape) => void;
@@ -233,7 +228,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mirrorAxis: 'off',
   rotation: 0,
   mode: 'build',
-  selectedBrickId: null,
   quality: 'high',
   lightIntensity: 1.0,
   lightWarmth: 0,
@@ -311,7 +305,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeBrickById: (id) => {
-    const { bricks, cellIndex, selectedBrickId } = get();
+    const { bricks, cellIndex } = get();
     const brick = bricks.get(id);
     if (!brick) return false;
     const cells = footprintCells(brick.shape, brick.gx, brick.gy, brick.gz, brick.rotation);
@@ -319,12 +313,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     nextBricks.delete(id);
     const nextIndex = new Map(cellIndex);
     for (const c of cells) nextIndex.delete(cellKey(c.gx, c.gy, c.gz));
-    set({
-      bricks: nextBricks,
-      cellIndex: nextIndex,
-      // Clear the selection if the removed brick was selected.
-      selectedBrickId: selectedBrickId === id ? null : selectedBrickId,
-    });
+    set({ bricks: nextBricks, cellIndex: nextIndex });
     return true;
   },
 
@@ -353,18 +342,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ bricks: nextBricks, cellIndex: nextIndex });
     return true;
   },
-
-  moveBrick: (id, dx, dy, dz) => {
-    const prev = get().bricks.get(id);
-    if (!prev) return false;
-    return get().updateBrick(id, {
-      gx: prev.gx + dx,
-      gy: prev.gy + dy,
-      gz: prev.gz + dz,
-    });
-  },
-
-  setSelectedBrickId: (id) => set({ selectedBrickId: id }),
 
   setTitle: (title) => set({ title }),
   setShape: (shape) =>

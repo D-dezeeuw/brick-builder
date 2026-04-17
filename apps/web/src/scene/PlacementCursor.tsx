@@ -11,7 +11,7 @@ import {
   type Brick,
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
-import { eraseBrick, moveBrickCmd, placeBrick } from '../state/commandStack';
+import { eraseBrick, pickUpBrick, placeBrick } from '../state/commandStack';
 import { BRICK_COLOR_HEX } from '../state/constants';
 import { getGeometry } from '../bricks/geometry/builders';
 
@@ -204,11 +204,12 @@ export function PlacementCursor() {
       }
 
       if (state.mode === 'select') {
-        // Click a brick → select it. Click empty space → deselect.
-        // All other interaction in select mode is keyboard-driven
-        // (arrows to move, R to rotate, Q/E for layer, Delete to
-        // remove, Esc to deselect).
-        state.setSelectedBrickId(h.underBrickId ?? null);
+        // "Grab" behaviour — click a brick to pick it up. The brick
+        // is removed and the editor flips into Build mode carrying
+        // its shape/colour/rotation/transparent flag. Next click
+        // drops the copy at the cursor. Click on empty space does
+        // nothing.
+        if (h.underBrickId) pickUpBrick(h.underBrickId);
         return;
       }
 
@@ -330,22 +331,15 @@ export function PlacementCursor() {
 
       if (step.dgx === 0 && step.dgz === 0) return;
       e.preventDefault();
-      // In select mode with a brick selected, arrows move the brick.
-      // In build mode they nudge the ghost offset as before.
-      const s = useEditorStore.getState();
-      if (s.mode === 'select' && s.selectedBrickId) {
-        moveBrickCmd(s.selectedBrickId, step.dgx, 0, step.dgz);
-        return;
-      }
-      s.bumpPlacementOffset(step.dgx, step.dgz);
+      useEditorStore.getState().bumpPlacementOffset(step.dgx, step.dgz);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [camera]);
 
   const geometry = useMemo(() => getGeometry(selectedShape), [selectedShape]);
-  // Select mode doesn't need a cursor ghost — SelectionHighlight
-  // renders the currently-selected brick's overlay instead.
+  // Select/Hand mode shows no cursor ghost — the mode is a one-shot
+  // click-to-pickup and flips into build immediately.
   if (mode === 'select') return null;
   if (!hover) return null;
 

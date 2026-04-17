@@ -109,50 +109,39 @@ export function eraseBrick(id: string): boolean {
 }
 
 /**
- * Move a brick by (dx, dy, dz). Rejects if the target footprint
- * collides with any other brick or lands below the baseplate. On
- * success registers an undoable command so arrow-key nudges are
- * individually reversible.
+ * "Pick up" a placed brick: removes it from the scene and switches
+ * the editor into Build mode with the brick's shape / colour /
+ * rotation / transparent flag copied into the current selection. A
+ * ghost of the picked brick then follows the cursor, ready to be
+ * dropped somewhere else with a normal build-mode click.
+ *
+ * Undo restores the original brick at its exact old position so
+ * Ctrl-Z after a pickup is a single "oh wait, put it back" step.
+ * We deliberately do NOT revert the shape/color/rotation selection
+ * changes — the user just intentionally adopted them.
  */
-export function moveBrickCmd(id: string, dx: number, dy: number, dz: number): boolean {
+export function pickUpBrick(id: string): boolean {
   const store = useEditorStore.getState();
-  const before = store.bricks.get(id);
-  if (!before) return false;
-  const target = { gx: before.gx + dx, gy: before.gy + dy, gz: before.gz + dz };
-  const ok = store.updateBrick(id, target);
-  if (!ok) return false;
-  commandStack.run({
-    do: () => {
-      useEditorStore.getState().updateBrick(id, target);
-    },
-    undo: () => {
-      useEditorStore.getState().updateBrick(id, {
-        gx: before.gx,
-        gy: before.gy,
-        gz: before.gz,
-      });
-    },
-  });
-  return true;
-}
+  const snapshot = store.bricks.get(id);
+  if (!snapshot) return false;
 
-/**
- * Rotate a brick 90° clockwise around Y (so R cycles through 0→1→2→3→0).
- * Collision-checked; same command-stack pattern as move.
- */
-export function rotateBrickCmd(id: string): boolean {
-  const store = useEditorStore.getState();
-  const before = store.bricks.get(id);
-  if (!before) return false;
-  const nextRot = ((before.rotation + 1) % 4) as unknown as Brick['rotation'];
-  const ok = store.updateBrick(id, { rotation: nextRot });
-  if (!ok) return false;
+  // Previous mode may or may not be 'select'; we still flip back to
+  // build on undo since the user was presumably picking up to move
+  // and undoing means "oops, put it back". Mode after undo = build
+  // is fine — they can re-enter hand mode if needed.
   commandStack.run({
     do: () => {
-      useEditorStore.getState().updateBrick(id, { rotation: nextRot });
+      const s = useEditorStore.getState();
+      s.removeBrickById(snapshot.id);
+      s.setMode('build');
+      s.setShape(snapshot.shape);
+      s.setColor(snapshot.color);
+      s.setTransparentMode(snapshot.transparent === true);
+      // rotation isn't in the simple setter family — set directly.
+      useEditorStore.setState({ rotation: snapshot.rotation });
     },
     undo: () => {
-      useEditorStore.getState().updateBrick(id, { rotation: before.rotation });
+      useEditorStore.getState().restoreBrick(snapshot);
     },
   });
   return true;
