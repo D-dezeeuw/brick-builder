@@ -21,6 +21,16 @@ export type RoomRow = {
   };
   created_at: string;
   updated_at: string;
+  /** Null when the room is public. Set by the set_room_password RPC. */
+  password_hash: string | null;
+  /** Bumped every time a password is set/changed/removed — clients diff this to detect kicks. */
+  password_set_at: string | null;
+};
+
+export type RoomMemberRow = {
+  room_id: string;
+  user_id: string;
+  joined_at: string;
 };
 
 export type BrickRow = {

@@ -1,12 +1,18 @@
 import { useFrame } from '@react-three/fiber';
 import {
+  Mesh,
+  MeshBasicMaterial,
+  OrthographicCamera,
+  PlaneGeometry,
+  Scene,
   Vector2,
   WebGLRenderTarget,
   type Camera,
-  type Scene,
+  type Texture,
   type WebGLRenderer,
 } from 'three';
 import { claimPendingCapture } from '../state/captureBus';
+import { getActivePathtracer } from '../state/pathtracerBus';
 
 /**
  * Watches for PNG-capture requests and services them with a render-to-target
@@ -14,11 +20,12 @@ import { claimPendingCapture } from '../state/captureBus';
  * requirement that would otherwise be needed to read the swap-chain buffer
  * from a UI click.
  *
- * Render mode caveat: the GPU pathtracer writes to the main swap chain, not
- * our offscreen target. In render mode this bridge still runs a fresh
- * rasterized render to the target — meaning exported PNGs reflect the
- * rasterized view even when the user is looking at a path-traced preview.
- * Acceptable for now; high-quality screenshots can exit render mode first.
+ * Render mode: when the GPU path tracer is active and has accumulated at
+ * least one sample, we blit its HDR target through the renderer's tone
+ * mapper into an LDR target and read that. This means a PNG saved during
+ * render mode captures the path-traced image, not a rasterized re-render.
+ * Falls back to rasterization when the tracer isn't ready (idle or zero
+ * samples).
  */
 export function CaptureBridge() {
   useFrame(({ gl, scene, camera }) => {
@@ -34,11 +41,26 @@ async function captureToBlob(
   scene: Scene,
   camera: Camera,
 ): Promise<Blob | null> {
-  // Match the on-screen resolution so exports look like what the user sees.
   const size = gl.getDrawingBufferSize(new Vector2());
   const width = Math.max(1, Math.round(size.x));
   const height = Math.max(1, Math.round(size.y));
 
+  const pathtracer = getActivePathtracer();
+  const pixels =
+    pathtracer && pathtracer.samples > 0
+      ? readTonemapped(gl, pathtracer.target.texture, width, height)
+      : rasterizeToPixels(gl, scene, camera, width, height);
+
+  return pixelsToPngBlob(pixels, width, height);
+}
+
+function rasterizeToPixels(
+  gl: WebGLRenderer,
+  scene: Scene,
+  camera: Camera,
+  width: number,
+  height: number,
+): Uint8Array {
   const target = new WebGLRenderTarget(width, height);
   const prev = gl.getRenderTarget();
   try {
@@ -46,11 +68,61 @@ async function captureToBlob(
     gl.render(scene, camera);
     const pixels = new Uint8Array(width * height * 4);
     gl.readRenderTargetPixels(target, 0, 0, width, height, pixels);
-    return pixelsToPngBlob(pixels, width, height);
+    return pixels;
   } finally {
     gl.setRenderTarget(prev);
     target.dispose();
   }
+}
+
+/**
+ * Renders a full-screen quad sampling `source` to an LDR render target.
+ * Because the renderer has ACESFilmic tone mapping + sRGB output
+ * configured, the HDR floats coming out of the path tracer get properly
+ * tone-mapped and gamma-corrected during the write, yielding pixels that
+ * match what the user sees on screen.
+ */
+function readTonemapped(
+  gl: WebGLRenderer,
+  source: Texture,
+  width: number,
+  height: number,
+): Uint8Array {
+  const rig = getBlitRig();
+  rig.material.map = source;
+  rig.material.needsUpdate = true;
+  const target = new WebGLRenderTarget(width, height);
+  const prev = gl.getRenderTarget();
+  try {
+    gl.setRenderTarget(target);
+    gl.render(rig.scene, rig.camera);
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+    return pixels;
+  } finally {
+    gl.setRenderTarget(prev);
+    rig.material.map = null;
+    target.dispose();
+  }
+}
+
+type BlitRig = {
+  scene: Scene;
+  camera: OrthographicCamera;
+  material: MeshBasicMaterial;
+};
+
+let blitRig: BlitRig | null = null;
+
+function getBlitRig(): BlitRig {
+  if (blitRig) return blitRig;
+  const scene = new Scene();
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const material = new MeshBasicMaterial({ toneMapped: true });
+  const mesh = new Mesh(new PlaneGeometry(2, 2), material);
+  scene.add(mesh);
+  blitRig = { scene, camera, material };
+  return blitRig;
 }
 
 async function pixelsToPngBlob(

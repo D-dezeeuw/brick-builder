@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Vector2 } from 'three';
+import { Vector2, Vector3 } from 'three';
 import {
   PLATE_HEIGHT_MM,
   SHAPE_CATALOG,
@@ -38,6 +38,7 @@ export function PlacementCursor() {
   const rotation = useEditorStore((s) => s.rotation);
   const mode = useEditorStore((s) => s.mode);
   const layerOffset = useEditorStore((s) => s.layerOffset);
+  const placementOffset = useEditorStore((s) => s.placementOffset);
   const canPlaceAt = useEditorStore((s) => s.canPlaceAt);
 
   useEffect(() => {
@@ -109,6 +110,9 @@ export function PlacementCursor() {
     };
 
     const onMove = (e: PointerEvent) => {
+      // Any real pointer motion invalidates the arrow-key nudge — the mouse
+      // is now the source of truth again.
+      useEditorStore.getState().resetPlacementOffset();
       // For mouse, track hover regardless of button state (hover preview).
       // For touch/pen, only follow the active pointer to avoid confusing
       // the ghost with a 2nd finger's path.
@@ -180,11 +184,12 @@ export function PlacementCursor() {
       placeBrick({
         shape: state.selectedShape,
         color: state.selectedColor,
-        gx: h.gx,
+        gx: h.gx + state.placementOffset.gx,
         gy: h.gy + state.layerOffset,
-        gz: h.gz,
+        gz: h.gz + state.placementOffset.gz,
         rotation: state.rotation,
       });
+      state.resetPlacementOffset();
     };
 
     const onCancel = (e: PointerEvent) => {
@@ -210,6 +215,70 @@ export function PlacementCursor() {
       dom.removeEventListener('contextmenu', onContext);
     };
   }, [gl, camera, raycaster, scene]);
+
+  // Arrow-key nudge. Step direction is camera-relative so "→" always moves
+  // the ghost toward the right edge of the screen, regardless of how the
+  // user has orbited. We pick the dominant world axis of the projected
+  // camera-right / camera-forward vectors so each press is exactly one stud
+  // along one of ±X / ±Z.
+  useEffect(() => {
+    const fwdTmp = new Vector3();
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        e.key !== 'ArrowLeft' &&
+        e.key !== 'ArrowRight' &&
+        e.key !== 'ArrowUp' &&
+        e.key !== 'ArrowDown'
+      )
+        return;
+      const t = e.target;
+      if (t instanceof HTMLElement) {
+        const tag = t.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || t.isContentEditable) return;
+      }
+      if (useEditorStore.getState().mode === 'erase') return;
+
+      camera.getWorldDirection(fwdTmp);
+      fwdTmp.y = 0;
+      if (fwdTmp.lengthSq() < 1e-6) return;
+      fwdTmp.normalize();
+      // screen-right in XZ = fwd cross world-up (Y). Hand-computed for speed.
+      const rx = -fwdTmp.z;
+      const rz = fwdTmp.x;
+
+      const pick = (x: number, z: number): { dgx: number; dgz: number } =>
+        Math.abs(x) >= Math.abs(z)
+          ? { dgx: Math.sign(x), dgz: 0 }
+          : { dgx: 0, dgz: Math.sign(z) };
+
+      let step: { dgx: number; dgz: number };
+      switch (e.key) {
+        case 'ArrowRight':
+          step = pick(rx, rz);
+          break;
+        case 'ArrowLeft': {
+          const a = pick(rx, rz);
+          step = { dgx: -a.dgx, dgz: -a.dgz };
+          break;
+        }
+        case 'ArrowUp':
+          step = pick(fwdTmp.x, fwdTmp.z);
+          break;
+        case 'ArrowDown':
+        default: {
+          const a = pick(fwdTmp.x, fwdTmp.z);
+          step = { dgx: -a.dgx, dgz: -a.dgz };
+          break;
+        }
+      }
+
+      if (step.dgx === 0 && step.dgz === 0) return;
+      e.preventDefault();
+      useEditorStore.getState().bumpPlacementOffset(step.dgx, step.dgz);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [camera]);
 
   const geometry = useMemo(() => getGeometry(selectedShape), [selectedShape]);
   if (!hover) return null;
@@ -243,10 +312,12 @@ export function PlacementCursor() {
     );
   }
 
-  // Build mode — preview brick at target cell. Apply the user's layer offset
-  // (Q/E) on top of the raycast-derived gy.
+  // Build mode — preview brick at target cell. Apply the user's Q/E layer
+  // offset on top of raycast gy, and the arrow-key nudge on top of gx/gz.
+  const effectiveGx = hover.gx + placementOffset.gx;
+  const effectiveGz = hover.gz + placementOffset.gz;
   const effectiveGy = hover.gy + layerOffset;
-  const occupied = !canPlaceAt(selectedShape, hover.gx, effectiveGy, hover.gz, rotation);
+  const occupied = !canPlaceAt(selectedShape, effectiveGx, effectiveGy, effectiveGz, rotation);
   const footprint = footprintOf(SHAPE_CATALOG[selectedShape]);
   const bodyW = footprint.w * STUD_PITCH_MM;
   const bodyD = footprint.d * STUD_PITCH_MM;
@@ -255,9 +326,9 @@ export function PlacementCursor() {
   return (
     <group
       position={[
-        hover.gx * STUD_PITCH_MM + ox,
+        effectiveGx * STUD_PITCH_MM + ox,
         effectiveGy * PLATE_HEIGHT_MM,
-        hover.gz * STUD_PITCH_MM + oz,
+        effectiveGz * STUD_PITCH_MM + oz,
       ]}
       rotation={[0, rotation * (Math.PI / 2), 0]}
       userData={{ kind: 'ghost' }}

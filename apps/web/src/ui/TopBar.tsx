@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../state/editorStore';
 import { useHelpStore } from '../state/helpStore';
 import { useSettingsStore } from '../state/settingsStore';
@@ -34,6 +34,30 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
     if (next !== title) setTitle(next);
     if (el.textContent !== next) el.textContent = next;
   };
+
+  // Mobile overflow panel: collapses Room/Export/Share/Settings/Help into one
+  // kebab button below 768px so the top bar doesn't overflow. Desktop CSS
+  // keeps .top-bar-actions inline regardless of `overflowOpen`.
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
+  const overflowBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!overflowOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (overflowRef.current?.contains(t) || overflowBtnRef.current?.contains(t)) return;
+      setOverflowOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOverflowOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [overflowOpen]);
 
   return (
     <>
@@ -74,26 +98,48 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
           />
         )}
         {stats.uniqueColors > 1 && <StatChip label="colors" value={stats.uniqueColors} />}
-        <RoomControl />
-        <ExportMenu />
-        <ShareButton />
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Graphics settings"
-          title="Graphics settings"
-          onClick={() => openSettings(true)}
+        <div
+          ref={overflowRef}
+          className="top-bar-actions"
+          data-open={overflowOpen ? 'true' : 'false'}
         >
-          <CogIcon />
-        </button>
+          <RoomControl />
+          <ExportMenu />
+          <ShareButton />
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Graphics settings"
+            title="Graphics settings"
+            onClick={() => {
+              setOverflowOpen(false);
+              openSettings(true);
+            }}
+          >
+            <CogIcon />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Keyboard shortcuts and help"
+            title="Keyboard shortcuts (?)"
+            onClick={() => {
+              setOverflowOpen(false);
+              openHelp(true);
+            }}
+          >
+            ?
+          </button>
+        </div>
         <button
+          ref={overflowBtnRef}
           type="button"
-          className="icon-btn"
-          aria-label="Keyboard shortcuts and help"
-          title="Keyboard shortcuts (?)"
-          onClick={() => openHelp(true)}
+          className="icon-btn top-bar__overflow-btn"
+          aria-label={overflowOpen ? 'Close actions menu' : 'Open actions menu'}
+          aria-expanded={overflowOpen}
+          onClick={() => setOverflowOpen((v) => !v)}
         >
-          ?
+          <KebabIcon />
         </button>
         <button
           type="button"
@@ -139,6 +185,16 @@ function PaletteIcon() {
       <circle cx="10.5" cy="7.5" r="1.25" fill="currentColor" />
       <circle cx="14.5" cy="7.5" r="1.25" fill="currentColor" />
       <circle cx="17" cy="11" r="1.25" fill="currentColor" />
+    </svg>
+  );
+}
+
+function KebabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="5.5" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="18.5" r="1.8" fill="currentColor" />
     </svg>
   );
 }

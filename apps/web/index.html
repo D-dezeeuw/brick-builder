@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content Security Policy. GitHub Pages can't set real response headers,
+      so this is a meta-tag CSP — enough to mitigate XSS and injection, but
+      note that `frame-ancestors` is ignored in meta form. Frame-busting
+      against clickjacking is handled in JS (see main.tsx).
+      Sources allowed:
+        - self:            own bundle, images, styles
+        - 'wasm-unsafe-eval': WebAssembly used by some three.js loaders
+        - 'unsafe-inline' on styles: Vite injects runtime styles
+        - data: / blob:    procedural textures, PNG export object URLs
+        - Supabase host:   REST + Realtime (wss) for multiplayer rooms
+        - raw.githack.com: drei's studio HDRI (pmndrs/drei-assets)
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://rmjbdmrgmigvhnsokufl.supabase.co wss://rmjbdmrgmigvhnsokufl.supabase.co https://raw.githack.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
     <title>Brick Builder</title>
   </head>
   <body>

@@ -71,6 +71,14 @@ type EditorState = {
   roomId: string | null;
   /** Connection phase for the UI (status pill, disable writes on error). */
   roomStatus: 'idle' | 'connecting' | 'connected' | 'error';
+  /** True when the joined room requires a password. Drives the lock icon UI. */
+  roomHasPassword: boolean;
+  /**
+   * Server-side timestamp of the last password change; diffed against the
+   * server UPDATE stream to detect password rotations (which kick everyone
+   * except the caller). Opaque ISO string — we compare equality only.
+   */
+  roomPasswordSetAt: string | null;
   /**
    * When true, the next store mutation is being applied from an inbound
    * realtime event — the room-sync outbound wrapper should skip it to avoid
@@ -79,6 +87,13 @@ type EditorState = {
   isRemoteApplying: boolean;
   /** Extra layers added on top of the raycast-derived target gy. */
   layerOffset: number;
+  /**
+   * Horizontal nudge applied on top of the raycast-derived gx/gz. Driven by
+   * the arrow keys while a piece is held under the cursor — lets the user
+   * fine-tune placement without jiggling the mouse. Resets to (0,0) on any
+   * pointer move, after a successful place, and when leaving build mode.
+   */
+  placementOffset: { gx: number; gz: number };
   /** LRU of recently-selected shapes; keys 1..9 map to this array. */
   recentShapes: BrickShape[];
   /** Current baseplate extent in grid coords (auto-grows as bricks reach the edge). */
@@ -104,11 +119,14 @@ type EditorState = {
   setPathtracerSamples: (n: number) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
+  setRoomPasswordState: (hasPassword: boolean, passwordSetAt: string | null) => void;
   /** Run a mutation with isRemoteApplying=true so the outbound sync wrapper skips it. */
   withRemoteApply: <T>(fn: () => T) => T;
   rotateCursor: () => void;
   bumpLayer: (delta: number) => void;
   resetLayer: () => void;
+  bumpPlacementOffset: (dgx: number, dgz: number) => void;
+  resetPlacementOffset: () => void;
   /** Expand the baseplate if a placement would land within the edge margin. */
   expandBaseplateFor: (brick: Brick) => void;
 
@@ -151,8 +169,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pathtracerSamples: 0,
   roomId: null,
   roomStatus: 'idle',
+  roomHasPassword: false,
+  roomPasswordSetAt: null,
   isRemoteApplying: false,
   layerOffset: 0,
+  placementOffset: { gx: 0, gz: 0 },
   recentShapes: ['brick_2x4'],
   baseplateBounds: {
     minGx: -INITIAL_HALF,
@@ -246,6 +267,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
+  setRoomPasswordState: (hasPassword, passwordSetAt) =>
+    set({ roomHasPassword: hasPassword, roomPasswordSetAt: passwordSetAt }),
   withRemoteApply: (fn) => {
     set({ isRemoteApplying: true });
     try {
@@ -257,6 +280,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   rotateCursor: () => set((s) => ({ rotation: ((s.rotation + 1) % 4) as Rotation })),
   bumpLayer: (delta) => set((s) => ({ layerOffset: Math.max(0, s.layerOffset + delta) })),
   resetLayer: () => set({ layerOffset: 0 }),
+  bumpPlacementOffset: (dgx, dgz) =>
+    set((s) => ({
+      placementOffset: { gx: s.placementOffset.gx + dgx, gz: s.placementOffset.gz + dgz },
+    })),
+  resetPlacementOffset: () =>
+    set((s) =>
+      s.placementOffset.gx === 0 && s.placementOffset.gz === 0
+        ? s
+        : { placementOffset: { gx: 0, gz: 0 } },
+    ),
 
   serializeCreation: () => {
     const { title, bricks, baseplateBounds } = get();

@@ -1,6 +1,6 @@
 import { SHAPE_CATALOG, type BrickShape } from './catalog';
 import type { BaseplateBounds, Brick, Rotation } from './index';
-import type { BrickColor } from './colors';
+import { BRICK_COLOR_HEX, type BrickColor } from './colors';
 
 /**
  * Serialised creation format. Versioned from day one so future schema changes
@@ -11,6 +11,17 @@ import type { BrickColor } from './colors';
  * minimum extent and re-growing as bricks load.
  */
 export const CURRENT_SCHEMA_VERSION = 1;
+
+/**
+ * Caps on untrusted input. These protect against DoS (giant JSON from a
+ * crafted URL / dropped file / realtime peer) and bound memory use for the
+ * scene renderer. The numbers are generous enough for real builds but
+ * reject-on-sight pathological payloads.
+ */
+export const MAX_TITLE_LENGTH = 256;
+export const MAX_BRICKS_PER_CREATION = 10000;
+/** Integer grid coord bound — no real build goes near this. */
+const MAX_GRID_COORD = 100000;
 
 export type Creation = {
   version: number;
@@ -30,16 +41,29 @@ function isShape(v: unknown): v is BrickShape {
   return typeof v === 'string' && v in SHAPE_CATALOG;
 }
 
-function isBrick(v: unknown): v is Brick {
+function isColor(v: unknown): v is BrickColor {
+  return typeof v === 'string' && v in BRICK_COLOR_HEX;
+}
+
+/** Finite integer within the grid-coord envelope. */
+function isGridCoord(v: unknown, allowNegative: boolean): boolean {
+  if (typeof v !== 'number' || !Number.isFinite(v) || !Number.isInteger(v)) return false;
+  if (!allowNegative && v < 0) return false;
+  return Math.abs(v) <= MAX_GRID_COORD;
+}
+
+export function isBrick(v: unknown): v is Brick {
   if (!v || typeof v !== 'object') return false;
   const b = v as Record<string, unknown>;
   return (
     typeof b.id === 'string' &&
+    b.id.length > 0 &&
+    b.id.length <= 64 &&
     isShape(b.shape) &&
-    typeof b.color === 'string' &&
-    typeof b.gx === 'number' &&
-    typeof b.gy === 'number' &&
-    typeof b.gz === 'number' &&
+    isColor(b.color) &&
+    isGridCoord(b.gx, true) &&
+    isGridCoord(b.gy, false) &&
+    isGridCoord(b.gz, true) &&
     isRotation(b.rotation)
   );
 }
@@ -48,28 +72,28 @@ function isBaseplateBounds(v: unknown): v is BaseplateBounds {
   if (!v || typeof v !== 'object') return false;
   const b = v as Record<string, unknown>;
   return (
-    typeof b.minGx === 'number' &&
-    typeof b.maxGx === 'number' &&
-    typeof b.minGz === 'number' &&
-    typeof b.maxGz === 'number' &&
-    b.minGx < b.maxGx &&
-    b.minGz < b.maxGz
+    isGridCoord(b.minGx, true) &&
+    isGridCoord(b.maxGx, true) &&
+    isGridCoord(b.minGz, true) &&
+    isGridCoord(b.maxGz, true) &&
+    (b.minGx as number) < (b.maxGx as number) &&
+    (b.minGz as number) < (b.maxGz as number)
   );
 }
 
 /**
  * Runtime guard: returns a Creation on success or null if anything is off.
- * Deliberately strict about shape/rotation/bounds because we accept input
- * from URLs and untrusted clipboards — corrupt payloads should fail fast
+ * Deliberately strict — we accept input from URLs, clipboards, dropped
+ * files, and realtime peers. Corrupt or hostile payloads should fail fast
  * and leave the current scene untouched.
  */
 export function validateCreation(raw: unknown): Creation | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   if (r.version !== CURRENT_SCHEMA_VERSION) return null;
-  if (typeof r.title !== 'string') return null;
+  if (typeof r.title !== 'string' || r.title.length > MAX_TITLE_LENGTH) return null;
   if (typeof r.createdAt !== 'number' || !Number.isFinite(r.createdAt)) return null;
-  if (!Array.isArray(r.bricks)) return null;
+  if (!Array.isArray(r.bricks) || r.bricks.length > MAX_BRICKS_PER_CREATION) return null;
   if (!isBaseplateBounds(r.baseplateBounds)) return null;
   for (const b of r.bricks) {
     if (!isBrick(b)) return null;
@@ -81,6 +105,17 @@ export function validateCreation(raw: unknown): Creation | null {
     bricks: r.bricks as Brick[],
     baseplateBounds: r.baseplateBounds,
   };
+}
+
+/** Clamp/sanitize a peer-supplied title to the max length. */
+export function sanitizeTitle(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  return raw.slice(0, MAX_TITLE_LENGTH);
+}
+
+/** Validate peer-supplied baseplate bounds; returns null if malformed. */
+export function validateBaseplateBounds(raw: unknown): BaseplateBounds | null {
+  return isBaseplateBounds(raw) ? (raw as BaseplateBounds) : null;
 }
 
 /** Unused-named imports referenced for TypeScript `isolatedModules` symmetry. */

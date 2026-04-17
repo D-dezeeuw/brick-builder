@@ -1,4 +1,5 @@
 import { useEditorStore } from '../state/editorStore';
+import { getPathTraceSupport } from '../state/webglCaps';
 
 type ToggleProps = {
   label: string;
@@ -55,18 +56,37 @@ export function EffectsSection() {
         onChange={setSmaa}
       />
 
+      <PathTraceButton renderMode={renderMode} setRenderMode={setRenderMode} />
+    </div>
+  );
+}
+
+function PathTraceButton({
+  renderMode,
+  setRenderMode,
+}: {
+  renderMode: boolean;
+  setRenderMode: (b: boolean) => void;
+}) {
+  const support = getPathTraceSupport();
+  const disabled = !support.supported && !renderMode;
+  const title = renderMode
+    ? 'Exit path-traced render mode'
+    : support.supported
+      ? 'Switch to GPU path tracer — non-interactive, converges over a few seconds'
+      : support.reason;
+  return (
+    <>
       <button
         type="button"
         className={`render-btn${renderMode ? ' render-btn--active' : ''}`}
         onClick={() => setRenderMode(!renderMode)}
-        title={
-          renderMode
-            ? 'Exit path-traced render mode'
-            : 'Switch to GPU path tracer — non-interactive, converges over a few seconds'
-        }
+        disabled={disabled}
+        title={title}
       >
         {renderMode ? 'Exit render mode' : 'Path-traced render'}
       </button>
-    </div>
+      {disabled && <p className="toggle-row__hint render-btn__unsupported">{support.reason}</p>}
+    </>
   );
 }

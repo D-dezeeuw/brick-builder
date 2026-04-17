@@ -33,12 +33,23 @@ export function exportCreationAsJson(creation: Creation): void {
 }
 
 /**
+ * Hard ceiling on imported JSON size. A valid creation with 10k bricks is
+ * well under 2 MB; 10 MB is a generous envelope that still keeps a hostile
+ * drop (e.g. a multi-GB "JSON" file) from OOM'ing the tab before parse.
+ */
+const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+
+/**
  * Read a dropped/selected file as a Creation and load it. Emits user-visible
  * toasts for the outcome. Resilient to malformed JSON and schema mismatch —
  * the current scene is preserved until load succeeds.
  */
 export async function importCreationFromFile(file: File): Promise<boolean> {
   const { show } = useToastStore.getState();
+  if (file.size > MAX_IMPORT_BYTES) {
+    show('File too large (max 10 MB)', 'error');
+    return false;
+  }
   try {
     const text = await file.text();
     const parsed = JSON.parse(text) as unknown;

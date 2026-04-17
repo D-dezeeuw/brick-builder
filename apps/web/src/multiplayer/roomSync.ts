@@ -1,6 +1,9 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import {
   CURRENT_SCHEMA_VERSION,
+  isBrick,
+  sanitizeTitle,
+  validateBaseplateBounds,
   type BaseplateBounds,
   type Brick,
   type BrickColor,
@@ -10,7 +13,10 @@ import {
 import { useEditorStore } from '../state/editorStore';
 import { commandStack } from '../state/commandStack';
 import { useToastStore } from '../state/toastStore';
+import { closePasswordPrompt, requestPassword, usePasswordPrompt } from '../state/passwordPromptStore';
 import { supabase, type BrickRow, type RoomRow } from './supabase';
+import { ensureAnonymousSession } from './auth';
+import { checkMembership, rpcJoinRoom } from './roomPassword';
 
 /**
  * Room lifecycle:
@@ -25,6 +31,7 @@ import { supabase, type BrickRow, type RoomRow } from './supabase';
 type SessionHandle = {
   channel: RealtimeChannel;
   roomId: string;
+  userId: string;
 };
 
 let session: SessionHandle | null = null;
@@ -40,6 +47,15 @@ export async function connectToRoom(roomId: string): Promise<boolean> {
 
   const store = useEditorStore.getState();
   store.setRoomStatus('connecting');
+
+  // 0) Ensure we have an anonymous auth session. RLS policies + RPC execute
+  //    grants are keyed to `authenticated`, so every request needs a JWT.
+  const userId = await ensureAnonymousSession();
+  if (!userId) {
+    store.setRoomStatus('error');
+    useToastStore.getState().show('Sign-in failed — check your connection', 'error');
+    return false;
+  }
 
   // 1) Ensure the room exists. First visitor seeds it with the current local
   //    state; subsequent visitors just read.
@@ -82,6 +98,20 @@ export async function connectToRoom(roomId: string): Promise<boolean> {
     return false;
   }
 
+  // 1.5) Password gate. Room-metadata SELECT is allowed for any authenticated
+  // user, but bricks + writes are blocked unless we're in room_members. Prompt
+  // until the user enters the right password or cancels.
+  if (roomRow.password_hash) {
+    const alreadyMember = await checkMembership(roomId, userId);
+    if (!alreadyMember) {
+      const ok = await promptUntilJoined(roomId);
+      if (!ok) {
+        store.setRoomStatus('idle');
+        return false;
+      }
+    }
+  }
+
   // 2) Hydrate the scene from room metadata + all its bricks.
   const bricksRes = await client.from('bricks').select('*').eq('room_id', roomId);
   if (bricksRes.error) {
@@ -91,10 +121,16 @@ export async function connectToRoom(roomId: string): Promise<boolean> {
     return false;
   }
 
-  const rows = (bricksRes.data as BrickRow[] | null) ?? [];
-  const hydrated: Brick[] = rows.map(rowToBrick);
-  const snapshotTitle = roomRow.title;
-  const snapshotBounds = roomRow.baseplate_bounds;
+  const rawRows = (bricksRes.data as BrickRow[] | null) ?? [];
+  // Realtime and REST responses are untrusted — filter out anything that
+  // doesn't match our schema. A malicious row shouldn't poison the scene.
+  const hydrated: Brick[] = [];
+  for (const row of rawRows) {
+    const brick = rowToBrickSafe(row);
+    if (brick) hydrated.push(brick);
+  }
+  const snapshotTitle = sanitizeTitle(roomRow.title) ?? 'Untitled Creation';
+  const snapshotBounds = validateBaseplateBounds(roomRow.baseplate_bounds) ?? store.baseplateBounds;
   const snapshotCreated = Date.parse(roomRow.created_at) || Date.now();
 
   store.withRemoteApply(() => {
@@ -109,22 +145,24 @@ export async function connectToRoom(roomId: string): Promise<boolean> {
   commandStack.clear();
 
   // 3) Subscribe to realtime changes filtered by room_id.
+  // Payloads are validated against the shared schema before being applied —
+  // never trust peer data directly, even though RLS gates writes server-side.
   const channel = client
     .channel(`room:${roomId}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'bricks', filter: `room_id=eq.${roomId}` },
-      (payload) => applyBrickInsert(payload.new as BrickRow),
+      (payload) => applyBrickInsert(payload.new),
     )
     .on(
       'postgres_changes',
       { event: 'DELETE', schema: 'public', table: 'bricks', filter: `room_id=eq.${roomId}` },
-      (payload) => applyBrickDelete((payload.old as Partial<BrickRow>).id),
+      (payload) => applyBrickDelete((payload.old as { id?: unknown }).id),
     )
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
-      (payload) => applyRoomUpdate(payload.new as RoomRow),
+      (payload) => applyRoomUpdate(payload.new),
     );
 
   await new Promise<void>((resolve) => {
@@ -140,11 +178,36 @@ export async function connectToRoom(roomId: string): Promise<boolean> {
     });
   });
 
-  session = { channel, roomId };
+  session = { channel, roomId, userId };
   store.setRoomId(roomId);
   store.setRoomStatus('connected');
+  store.setRoomPasswordState(roomRow.password_hash !== null, roomRow.password_set_at);
   useToastStore.getState().show(`Joined room ${roomId}`, 'success');
   return true;
+}
+
+/**
+ * Loops the password prompt until the RPC accepts a guess or the user
+ * cancels. Wrong attempts keep the modal open with an error; a cancel
+ * during an in-flight RPC is caught by the "still open" guard so we don't
+ * spuriously re-open the prompt.
+ */
+async function promptUntilJoined(roomId: string): Promise<boolean> {
+  for (;;) {
+    const password = await requestPassword(roomId);
+    if (password === null) {
+      closePasswordPrompt();
+      return false;
+    }
+    const ok = await rpcJoinRoom(roomId, password);
+    if (ok) {
+      closePasswordPrompt();
+      return true;
+    }
+    // User cancelled while the RPC was running — stop looping.
+    if (!usePasswordPrompt.getState().open) return false;
+    usePasswordPrompt.getState().setError('Wrong password');
+  }
 }
 
 export async function disconnectRoom(): Promise<void> {
@@ -155,6 +218,7 @@ export async function disconnectRoom(): Promise<void> {
   const store = useEditorStore.getState();
   store.setRoomId(null);
   store.setRoomStatus('idle');
+  store.setRoomPasswordState(false, null);
 }
 
 export function currentRoomId(): string | null {
@@ -163,16 +227,18 @@ export function currentRoomId(): string | null {
 
 // -------------------- Event appliers --------------------
 
-function applyBrickInsert(row: BrickRow): void {
+function applyBrickInsert(raw: unknown): void {
+  const brick = rowToBrickSafe(raw);
+  if (!brick) return;
   const store = useEditorStore.getState();
-  if (store.bricks.has(row.id)) return; // our own echo
+  if (store.bricks.has(brick.id)) return; // our own echo
   store.withRemoteApply(() => {
-    useEditorStore.getState().restoreBrick(rowToBrick(row));
+    useEditorStore.getState().restoreBrick(brick);
   });
 }
 
-function applyBrickDelete(id: string | undefined): void {
-  if (!id) return;
+function applyBrickDelete(id: unknown): void {
+  if (typeof id !== 'string' || id.length === 0 || id.length > 64) return;
   const store = useEditorStore.getState();
   if (!store.bricks.has(id)) return; // already gone locally
   store.withRemoteApply(() => {
@@ -180,39 +246,82 @@ function applyBrickDelete(id: string | undefined): void {
   });
 }
 
-function applyRoomUpdate(row: RoomRow): void {
+function applyRoomUpdate(raw: unknown): void {
+  if (!raw || typeof raw !== 'object') return;
+  const row = raw as Partial<RoomRow>;
   const store = useEditorStore.getState();
-  if (store.title !== row.title) {
+  const nextTitle = sanitizeTitle(row.title);
+  if (nextTitle !== null && store.title !== nextTitle) {
     store.withRemoteApply(() => {
-      useEditorStore.getState().setTitle(row.title);
+      useEditorStore.getState().setTitle(nextTitle);
     });
   }
-  const local = store.baseplateBounds;
-  const remote = row.baseplate_bounds;
-  if (
-    local.minGx !== remote.minGx ||
-    local.maxGx !== remote.maxGx ||
-    local.minGz !== remote.minGz ||
-    local.maxGz !== remote.maxGz
-  ) {
-    store.withRemoteApply(() => {
-      useEditorStore.setState({ baseplateBounds: remote });
-    });
+  const remote = validateBaseplateBounds(row.baseplate_bounds);
+  if (remote) {
+    const local = store.baseplateBounds;
+    if (
+      local.minGx !== remote.minGx ||
+      local.maxGx !== remote.maxGx ||
+      local.minGz !== remote.minGz ||
+      local.maxGz !== remote.maxGz
+    ) {
+      store.withRemoteApply(() => {
+        useEditorStore.setState({ baseplateBounds: remote });
+      });
+    }
   }
+
+  // Password rotation = kick signal. Re-check membership; if we were removed
+  // while the password is still set, the modal comes up again. Pre-existing
+  // members keep their access through the rotation.
+  const nextPwSetAt = typeof row.password_set_at === 'string' ? row.password_set_at : null;
+  const nextHasPw = row.password_hash !== null && row.password_hash !== undefined;
+  if (nextPwSetAt !== store.roomPasswordSetAt) {
+    store.setRoomPasswordState(nextHasPw, nextPwSetAt);
+    void handlePasswordRotation(nextHasPw);
+  }
+}
+
+/**
+ * Triggered when the room's password_set_at timestamp changes. If the room
+ * is still protected we re-check our membership; losing it means we've been
+ * kicked and must re-authenticate. A rotation that simply removes the
+ * password leaves our session intact.
+ */
+async function handlePasswordRotation(hasPassword: boolean): Promise<void> {
+  const current = session;
+  if (!current) return;
+  if (!hasPassword) return; // password was removed; still in the room, no action.
+  const stillMember = await checkMembership(current.roomId, current.userId);
+  if (stillMember) return;
+  // We've been removed. Unsubscribe + clear scene, then loop the prompt.
+  const roomId = current.roomId;
+  useToastStore.getState().show('Room password changed — re-enter to rejoin', 'info');
+  await disconnectRoom();
+  void connectToRoom(roomId);
 }
 
 // -------------------- Row <-> Brick conversions --------------------
 
-function rowToBrick(row: BrickRow): Brick {
-  return {
+/**
+ * Coerce an untrusted row into a Brick. Returns null for anything that
+ * doesn't pass the shared-schema validator — colour outside the palette,
+ * unknown shape, non-finite coords, etc. Protects against a peer that
+ * ignores the client and writes garbage straight to the DB.
+ */
+function rowToBrickSafe(raw: unknown): Brick | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Partial<BrickRow>;
+  const candidate = {
     id: row.id,
-    shape: row.shape as BrickShape,
-    color: row.color as BrickColor,
+    shape: row.shape as BrickShape | undefined,
+    color: row.color as BrickColor | undefined,
     gx: row.gx,
     gy: row.gy,
     gz: row.gz,
-    rotation: row.rotation as Rotation,
+    rotation: row.rotation as Rotation | undefined,
   };
+  return isBrick(candidate) ? candidate : null;
 }
 
 /**

@@ -54,7 +54,16 @@ export {
 
 export { BRICK_COLOR_HEX, BRICK_COLOR_ORDER, type BrickColor } from './colors';
 
-export { CURRENT_SCHEMA_VERSION, validateCreation, type Creation } from './schema';
+export {
+  CURRENT_SCHEMA_VERSION,
+  MAX_BRICKS_PER_CREATION,
+  MAX_TITLE_LENGTH,
+  isBrick,
+  sanitizeTitle,
+  validateBaseplateBounds,
+  validateCreation,
+  type Creation,
+} from './schema';
 
 export {
   SHARE_HASH_PARAM,

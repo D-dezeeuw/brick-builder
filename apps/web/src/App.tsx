@@ -8,6 +8,7 @@ import { Hotbar } from './ui/Hotbar';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
+import { PasswordPromptModal } from './ui/PasswordPromptModal';
 import { SettingsModal } from './ui/SettingsModal';
 import { Toasts } from './ui/Toasts';
 import { useFirstRunHelp, useHelpStore } from './state/helpStore';
@@ -15,6 +16,7 @@ import { useSettingsStore } from './state/settingsStore';
 import { hasWebGL2 } from './state/webgl';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
+import { ensureAnonymousSession } from './multiplayer/auth';
 import { useRoomRouter } from './multiplayer/useRoomRouter';
 import { useRoomWrites } from './multiplayer/roomWrites';
 import { warmGeometryCache } from './bricks/geometry/builders';
@@ -35,6 +37,10 @@ export function App() {
 
   useEffect(() => {
     warmGeometryCache();
+    // Kick off the anonymous sign-in early so the first room-join doesn't
+    // have to wait for the auth round-trip. The helper is idempotent and
+    // memoised — subsequent callers reuse the same promise.
+    void ensureAnonymousSession();
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(() =>
@@ -72,6 +78,7 @@ export function App() {
       <Toasts />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <PasswordPromptModal />
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
       </aside>

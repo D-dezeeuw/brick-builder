@@ -11,6 +11,7 @@ const SECTIONS: Array<{
       ['R-click / Erase mode', 'Remove a brick'],
       ['R', 'Rotate the ghost'],
       ['Q / E', 'Lower / raise target layer'],
+      ['Arrow keys', 'Nudge ghost ±1 stud (resets on mouse move)'],
       ['1 – 9', 'Select recent shape'],
     ],
   },
@@ -19,8 +20,9 @@ const SECTIONS: Array<{
     rows: [
       ['Drag', 'Orbit'],
       ['Middle-drag', 'Pan'],
+      ['Space + drag', 'Pan with left mouse'],
       ['Wheel', 'Zoom'],
-      ['Two fingers', 'Orbit + pinch zoom (touch)'],
+      ['Two fingers', 'Pan + pinch zoom (touch)'],
     ],
   },
   {

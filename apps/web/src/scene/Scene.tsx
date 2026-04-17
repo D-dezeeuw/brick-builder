@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, TOUCH } from 'three';
@@ -19,6 +19,9 @@ const Pathtracer = lazy(() =>
 );
 const PathtracerSampleReporter = lazy(() =>
   import('./PathtracerSampleReporter').then((m) => ({ default: m.PathtracerSampleReporter })),
+);
+const PathtracerBusBridge = lazy(() =>
+  import('./PathtracerBusBridge').then((m) => ({ default: m.PathtracerBusBridge })),
 );
 const PathtracingExpansion = lazy(() =>
   import('./PathtracingExpansion').then((m) => ({ default: m.PathtracingExpansion })),
@@ -41,6 +44,43 @@ export function Scene() {
     const [r, g, b] = warmthToRgb(lightWarmth);
     return new Color(r, g, b);
   }, [lightWarmth]);
+
+  // Spacebar-hold temporarily swaps the left mouse button from orbit to pan,
+  // matching the Blender / Figma convention. Ignored while typing into a
+  // form field so the title editor and password inputs aren't affected.
+  // A body-level class drives the "grabbing" cursor so the feedback shows
+  // up regardless of whether the pointer is over the canvas or a UI overlay.
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  useEffect(() => {
+    const isTypingTarget = (t: EventTarget | null) => {
+      if (!(t instanceof HTMLElement)) return false;
+      const tag = t.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || t.isContentEditable;
+    };
+    const onDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat) return;
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      setSpaceHeld(true);
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      setSpaceHeld(false);
+    };
+    const onBlur = () => setSpaceHeld(false);
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle('space-panning', spaceHeld);
+    return () => document.body.classList.remove('space-panning');
+  }, [spaceHeld]);
 
   const baseSize = INITIAL_BASEPLATE_STUDS * STUD_PITCH_MM;
   const camDist = baseSize * 1.1;
@@ -109,6 +149,7 @@ export function Scene() {
             {sceneContent}
             <PathtracingExpansion />
             <PathtracerSampleReporter />
+            <PathtracerBusBridge />
           </Pathtracer>
         </Suspense>
       ) : (
@@ -131,8 +172,11 @@ export function Scene() {
         enablePan
         screenSpacePanning
         panSpeed={0.9}
-        mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.PAN }}
-        touches={{ TWO: TOUCH.DOLLY_ROTATE }}
+        mouseButtons={{ LEFT: spaceHeld ? MOUSE.PAN : MOUSE.ROTATE, MIDDLE: MOUSE.PAN }}
+        // One finger orbits, two fingers pan + pinch-zoom. Matches the
+        // convention touch users expect from Figma / SketchUp / Google Maps
+        // and keeps placement-tap behaviour unambiguous on mobile.
+        touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
         minDistance={baseSize * 0.25}
         maxDistance={baseSize * 3}
         minPolarAngle={0.1}

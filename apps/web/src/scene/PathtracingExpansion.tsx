@@ -1,6 +1,15 @@
 import { useLayoutEffect } from 'react';
 import { useThree } from '@react-three/fiber';
-import { InstancedMesh, Matrix4, Mesh } from 'three';
+import {
+  Color,
+  InstancedMesh,
+  Matrix4,
+  Mesh,
+  MeshStandardMaterial,
+  type Material,
+  type MeshPhysicalMaterial,
+  type Texture,
+} from 'three';
 
 /**
  * three-gpu-pathtracer@0.0.23 (the last release compatible with three 0.171)
@@ -12,13 +21,26 @@ import { InstancedMesh, Matrix4, Mesh } from 'three';
  * This component sits inside <Pathtracer> and, on mount, expands every
  * visible InstancedMesh into individual Mesh clones at each instance's
  * transform. The originals are hidden for the duration of render mode and
- * restored on unmount. The pathtracer's own setScene() call runs AFTER this
- * (parent layout effects commit after children), so the expanded meshes are
- * in the scene graph by the time the BVH is built.
+ * restored on unmount.
  *
- * Trade-off: per-instance colour jitter is lost in render mode (all clones
- * share the base material). The pathtracer's own physical BRDF + IBL carries
- * more than enough variation for the "render" use case.
+ * Materials are swapped to a PT-simplified MeshStandardMaterial variant keyed
+ * on the base color. Reasons:
+ * 1. three-gpu-pathtracer@0.0.23 reads `material.envMap` directly and does
+ *    not implicitly fall back to `scene.environment` the way the rasterizer
+ *    does. Without an explicit envMap assignment, IBL contribution is zero
+ *    — which on mobile (where HDR float textures are flaky) shows up as
+ *    flat-black bricks. We assign `scene.environment` explicitly here.
+ * 2. Clearcoat + sheen on MeshPhysicalMaterial push the shader past mobile
+ *    WebGL2 instruction budgets on some iOS GPUs, causing a silent fallback
+ *    to a black shader. Dropping to MeshStandardMaterial keeps the visual
+ *    roughly the same (PT's own BRDF is more important than the material
+ *    type) while staying within mobile shader budgets.
+ * 3. A tiny emissive baseline (0.03 of the base color) keeps bricks
+ *    visible even if the environment map fails to load entirely — direct
+ *    lights + this floor guarantee we never show a pitch-black canvas.
+ *
+ * Trade-off: per-instance colour jitter is lost in render mode. The
+ * pathtracer's own BRDF + IBL carries more than enough variation.
  */
 export function PathtracingExpansion() {
   const scene = useThree((s) => s.scene);
@@ -26,18 +48,21 @@ export function PathtracingExpansion() {
   useLayoutEffect(() => {
     const clones: Mesh[] = [];
     const hidden: InstancedMesh[] = [];
+    const ptMaterials: MeshStandardMaterial[] = [];
+    const materialByKey = new Map<string, MeshStandardMaterial>();
     const m = new Matrix4();
 
     scene.traverse((obj) => {
       const im = obj as InstancedMesh;
       if (!im.isInstancedMesh || im.count === 0 || !im.parent) return;
+
+      const ptMaterial = getPtMaterial(im.material, scene.environment, materialByKey);
+      if (ptMaterial && !ptMaterials.includes(ptMaterial)) ptMaterials.push(ptMaterial);
+
       for (let i = 0; i < im.count; i++) {
         im.getMatrixAt(i, m);
-        const clone = new Mesh(im.geometry, im.material);
+        const clone = new Mesh(im.geometry, ptMaterial ?? im.material);
         clone.matrixAutoUpdate = false;
-        // Instance matrix is in the InstancedMesh's local space. Our
-        // InstancedMeshes sit at identity relative to their parent, so
-        // the instance matrix is also the clone's local matrix.
         clone.matrix.copy(m);
         clone.castShadow = im.castShadow;
         clone.receiveShadow = im.receiveShadow;
@@ -53,8 +78,32 @@ export function PathtracingExpansion() {
     return () => {
       for (const clone of clones) clone.parent?.remove(clone);
       for (const im of hidden) im.visible = true;
+      for (const mat of ptMaterials) mat.dispose();
     };
   }, [scene]);
 
   return null;
+}
+
+function getPtMaterial(
+  source: Material | Material[],
+  envMap: Texture | null,
+  cache: Map<string, MeshStandardMaterial>,
+): MeshStandardMaterial | null {
+  const base = Array.isArray(source) ? source[0] : source;
+  const color = (base as MeshPhysicalMaterial).color;
+  if (!color) return null;
+  const key = `#${color.getHexString()}`;
+  const existing = cache.get(key);
+  if (existing) return existing;
+  const material = new MeshStandardMaterial({
+    color: color.clone(),
+    roughness: 0.4,
+    metalness: 0,
+    emissive: new Color(color).multiplyScalar(0.03),
+  });
+  material.envMap = envMap;
+  material.envMapIntensity = 1;
+  cache.set(key, material);
+  return material;
 }
