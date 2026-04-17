@@ -6,11 +6,24 @@ import {
   Matrix4,
   Mesh,
   MeshPhysicalMaterial,
+  MeshStandardMaterial,
   type Material,
   type Texture,
 } from 'three';
 import { reflectivityToProps } from '../bricks/material';
 import { useEditorStore } from '../state/editorStore';
+
+/**
+ * Coarse mobile heuristic. three-gpu-pathtracer 0.0.23 conditionally
+ * compiles clearcoat / sheen branches into its mega-shader based on
+ * which materials it sees; iOS GPUs and some Mali chips silently fall
+ * back to zero-output fragments when that shader exceeds their
+ * instruction budget, which renders as pitch-black bricks. The UA
+ * sniff is pragmatic — a proper WebGL shader-compile probe would be
+ * nicer but a lot more code for a hobby feature.
+ */
+const IS_MOBILE =
+  typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 /**
  * three-gpu-pathtracer@0.0.23 (the last release compatible with three 0.171)
@@ -54,30 +67,39 @@ export function PathtracingExpansion() {
   useLayoutEffect(() => {
     const clones: Mesh[] = [];
     const hidden: InstancedMesh[] = [];
-    const ptMaterials: MeshPhysicalMaterial[] = [];
-    const materialByKey = new Map<string, MeshPhysicalMaterial>();
+    const ptMaterials: Material[] = [];
+    const materialByKey = new Map<string, MeshPhysicalMaterial | MeshStandardMaterial>();
     const m = new Matrix4();
 
     scene.traverse((obj) => {
       const im = obj as InstancedMesh;
       if (!im.isInstancedMesh || im.count === 0 || !im.parent) return;
 
-      // Realtime materials tagged with `userData.clearBrick === true` by
-      // createBrickMaterial are the clear-plastic buckets. We used to
-      // sniff `material.transmission > 0`, but the realtime variant now
-      // avoids transmission entirely (it conflicts with the EffectComposer
-      // during MSAA-resolve blits), so the explicit tag is the only
-      // reliable signal between realtime and PT.
       const firstMat = Array.isArray(im.material) ? im.material[0] : im.material;
-      const transparent = firstMat?.userData?.clearBrick === true;
 
-      const ptMaterial = getPtMaterial(
-        im.material,
-        scene.environment,
-        materialByKey,
-        reflectivity,
-        transparent,
-      );
+      // Opt-out flag set by non-brick InstancedMeshes (currently only
+      // the baseplate stud field). Those meshes keep their own colour
+      // and roughness — but we still clone the material to attach an
+      // explicit envMap, because the PT reads material.envMap directly
+      // rather than scene.environment.
+      const cloneMat =
+        firstMat?.userData?.ptKeepMaterial === true
+          ? cloneWithEnv(firstMat, scene.environment)
+          : null;
+
+      let ptMaterial: Material | null = cloneMat;
+      if (!ptMaterial) {
+        // Brick path — same clearBrick flag we used before to split
+        // solid from transparent buckets.
+        const transparent = firstMat?.userData?.clearBrick === true;
+        ptMaterial = getPtMaterial(
+          im.material,
+          scene.environment,
+          materialByKey,
+          reflectivity,
+          transparent,
+        );
+      }
       if (ptMaterial && !ptMaterials.includes(ptMaterial)) ptMaterials.push(ptMaterial);
 
       for (let i = 0; i < im.count; i++) {
@@ -109,25 +131,35 @@ export function PathtracingExpansion() {
 function getPtMaterial(
   source: Material | Material[],
   envMap: Texture | null,
-  cache: Map<string, MeshPhysicalMaterial>,
+  cache: Map<string, MeshPhysicalMaterial | MeshStandardMaterial>,
   reflectivity: number,
   transparent: boolean,
-): MeshPhysicalMaterial | null {
+): MeshPhysicalMaterial | MeshStandardMaterial | null {
   const base = Array.isArray(source) ? source[0] : source;
   const color = (base as MeshPhysicalMaterial).color;
   if (!color) return null;
-  const key = `${transparent ? 't' : 's'}#${color.getHexString()}`;
+  const key = `${IS_MOBILE ? 'm' : 'd'}${transparent ? 't' : 's'}#${color.getHexString()}`;
   const existing = cache.get(key);
   if (existing) return existing;
 
   if (transparent) {
-    // Clear-plastic PT variant. three-gpu-pathtracer 0.0.23 reads
-    // transmission/ior/thickness/attenuation off MeshPhysicalMaterial
-    // directly, so the traced result matches the realtime tinted-glass
-    // look. Roughness stays very low so highlights stay crisp; the
-    // tint comes from attenuationColor (= surface color) rather than
-    // base color, which keeps interior transmission coloured without
-    // a baked opacity.
+    // Clear-plastic PT variant. Mobile drops transmission/clearcoat
+    // entirely (shader budget) and uses an alpha-blended
+    // MeshStandardMaterial that the PT treats as a simple semi-
+    // transparent surface — loses refraction but keeps mobile alive.
+    if (IS_MOBILE) {
+      const material = new MeshStandardMaterial({
+        color: color.clone(),
+        roughness: 0.2,
+        metalness: 0,
+        transparent: true,
+        opacity: 0.55,
+      });
+      material.envMap = envMap;
+      material.envMapIntensity = 1;
+      cache.set(key, material);
+      return material;
+    }
     const material = new MeshPhysicalMaterial({
       color: color.clone(),
       roughness: 0.05,
@@ -146,11 +178,27 @@ function getPtMaterial(
     return material;
   }
 
+  // Opaque bricks.
+  // Mobile: MeshStandardMaterial (no clearcoat) to stay within the
+  //         three-gpu-pathtracer mega-shader instruction budget.
+  //         Visually flatter than the desktop clearcoated version,
+  //         but visible — which beats black.
+  // Desktop: full MeshPhysicalMaterial with the gloss slider's
+  //          clearcoat settings.
+  if (IS_MOBILE) {
+    const material = new MeshStandardMaterial({
+      color: color.clone(),
+      roughness: 0.35,
+      metalness: 0,
+      emissive: new Color(color).multiplyScalar(0.02),
+    });
+    material.envMap = envMap;
+    material.envMapIntensity = 1;
+    cache.set(key, material);
+    return material;
+  }
+
   const props = reflectivityToProps(reflectivity);
-  // Sheen is deliberately omitted — it's the MeshPhysicalMaterial feature
-  // that caused mobile shader-budget issues before, and the PT's own BRDF
-  // doesn't support it in 0.0.23 anyway. A tiny emissive term keeps dark
-  // corners from crushing to pure black if the env map fails to load.
   const material = new MeshPhysicalMaterial({
     color: color.clone(),
     roughness: props.roughness,
@@ -163,4 +211,18 @@ function getPtMaterial(
   material.envMapIntensity = 1;
   cache.set(key, material);
   return material;
+}
+
+/**
+ * Clone an arbitrary brick-adjacent material for the PT scene,
+ * preserving its own properties (colour, roughness, metalness) but
+ * attaching the scene-level env map explicitly. Used for non-brick
+ * InstancedMeshes tagged with `ptKeepMaterial` — currently only the
+ * baseplate stud field.
+ */
+function cloneWithEnv(source: Material, envMap: Texture | null): Material {
+  const clone = source.clone() as MeshStandardMaterial;
+  clone.envMap = envMap;
+  if ('envMapIntensity' in clone) clone.envMapIntensity = 1;
+  return clone;
 }

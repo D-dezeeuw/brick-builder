@@ -40,6 +40,12 @@ function StudField({
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
     mesh.raycast = () => {};
+    // Tell PathtracingExpansion to preserve the stud's own material
+    // instead of swapping in the brick-clearcoat recipe — studs aren't
+    // bricks and mobile GPUs can't run the full physical-material
+    // shader for them.
+    mesh.userData.kind = 'baseplate-stud';
+    mesh.userData.ptKeepMaterial = true;
   }, [minGx, maxGx, minGz, maxGz, count, width, depth]);
 
   return (
