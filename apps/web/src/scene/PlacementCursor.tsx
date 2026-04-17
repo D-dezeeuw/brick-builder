@@ -11,7 +11,7 @@ import {
   type Brick,
 } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
-import { eraseBrick, placeBrick } from '../state/commandStack';
+import { eraseBrick, moveBrickCmd, placeBrick } from '../state/commandStack';
 import { BRICK_COLOR_HEX } from '../state/constants';
 import { getGeometry } from '../bricks/geometry/builders';
 
@@ -203,6 +203,15 @@ export function PlacementCursor() {
         return;
       }
 
+      if (state.mode === 'select') {
+        // Click a brick → select it. Click empty space → deselect.
+        // All other interaction in select mode is keyboard-driven
+        // (arrows to move, R to rotate, Q/E for layer, Delete to
+        // remove, Esc to deselect).
+        state.setSelectedBrickId(h.underBrickId ?? null);
+        return;
+      }
+
       const primaryGx = h.gx + state.placementOffset.gx;
       const primaryGy = h.gy + state.layerOffset;
       const primaryGz = h.gz + state.placementOffset.gz;
@@ -321,13 +330,23 @@ export function PlacementCursor() {
 
       if (step.dgx === 0 && step.dgz === 0) return;
       e.preventDefault();
-      useEditorStore.getState().bumpPlacementOffset(step.dgx, step.dgz);
+      // In select mode with a brick selected, arrows move the brick.
+      // In build mode they nudge the ghost offset as before.
+      const s = useEditorStore.getState();
+      if (s.mode === 'select' && s.selectedBrickId) {
+        moveBrickCmd(s.selectedBrickId, step.dgx, 0, step.dgz);
+        return;
+      }
+      s.bumpPlacementOffset(step.dgx, step.dgz);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [camera]);
 
   const geometry = useMemo(() => getGeometry(selectedShape), [selectedShape]);
+  // Select mode doesn't need a cursor ghost — SelectionHighlight
+  // renders the currently-selected brick's overlay instead.
+  if (mode === 'select') return null;
   if (!hover) return null;
 
   // In erase mode, the ghost is a semi-transparent red outline of the brick

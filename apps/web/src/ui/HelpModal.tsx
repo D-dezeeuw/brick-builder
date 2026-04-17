@@ -27,6 +27,17 @@ const SECTIONS: Array<{
     ],
   },
   {
+    heading: 'Hand mode',
+    rows: [
+      ['Click a brick', 'Select it'],
+      ['Arrow keys', 'Move selected ±1 stud (camera-relative)'],
+      ['Q / E', 'Lower / raise the selected brick'],
+      ['R', 'Rotate selected 90°'],
+      ['Delete / Backspace', 'Remove selected'],
+      ['Esc', 'Deselect'],
+    ],
+  },
+  {
     heading: 'Editing',
     rows: [
       ['⌘ / Ctrl + Z', 'Undo'],

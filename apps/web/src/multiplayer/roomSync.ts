@@ -165,6 +165,11 @@ export async function connectToRoom(roomId: string): Promise<boolean> {
     )
     .on(
       'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'bricks', filter: `room_id=eq.${roomId}` },
+      (payload) => applyBrickUpdate(payload.new),
+    )
+    .on(
+      'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
       (payload) => applyRoomUpdate(payload.new),
     );
@@ -238,6 +243,44 @@ function applyBrickInsert(raw: unknown): void {
   if (store.bricks.has(brick.id)) return; // our own echo
   store.withRemoteApply(() => {
     useEditorStore.getState().restoreBrick(brick);
+  });
+}
+
+function applyBrickUpdate(raw: unknown): void {
+  const brick = rowToBrickSafe(raw);
+  if (!brick) return;
+  const store = useEditorStore.getState();
+  const existing = store.bricks.get(brick.id);
+  if (!existing) {
+    // Update for a brick we don't have locally — treat as late-
+    // arriving insert so we stay in sync.
+    store.withRemoteApply(() => {
+      useEditorStore.getState().restoreBrick(brick);
+    });
+    return;
+  }
+  // Already identical (our own echo, or a no-op)?
+  if (
+    existing.gx === brick.gx &&
+    existing.gy === brick.gy &&
+    existing.gz === brick.gz &&
+    existing.rotation === brick.rotation &&
+    existing.color === brick.color &&
+    existing.shape === brick.shape &&
+    (existing.transparent === true) === (brick.transparent === true)
+  ) {
+    return;
+  }
+  store.withRemoteApply(() => {
+    useEditorStore.getState().updateBrick(brick.id, {
+      shape: brick.shape,
+      color: brick.color,
+      gx: brick.gx,
+      gy: brick.gy,
+      gz: brick.gz,
+      rotation: brick.rotation,
+      transparent: brick.transparent === true,
+    });
   });
 }
 

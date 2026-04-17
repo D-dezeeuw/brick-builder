@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { BrickColor } from '@brick/shared';
 import { useEditorStore, type EditorMode } from '../state/editorStore';
 import { BRICK_COLOR_HEX, BRICK_COLOR_ORDER } from '../state/constants';
@@ -20,6 +21,17 @@ export function Sidebar() {
         <div className="mode-row" role="tablist" aria-label="Editor mode">
           <ModeButton label="Build" value="build" active={mode === 'build'} onSelect={setMode} />
           <ModeButton label="Erase" value="erase" active={mode === 'erase'} onSelect={setMode} />
+          <ModeButton
+            label={
+              <span className="mode-btn__hand">
+                <HandIcon />
+                <span>Hand</span>
+              </span>
+            }
+            value="select"
+            active={mode === 'select'}
+            onSelect={setMode}
+          />
         </div>
       </div>
 
@@ -131,13 +143,54 @@ function MirrorButton({
   );
 }
 
+function HandIcon() {
+  // Stylised open-palm — fingers spread, thumb out. Sized to match
+  // the existing text-label heights so the button row stays vertically
+  // balanced.
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+    >
+      <path
+        d="M8 11V4.5a1.5 1.5 0 0 1 3 0V10"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M11 10V3.5a1.5 1.5 0 0 1 3 0V10"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14 10V4.5a1.5 1.5 0 0 1 3 0V11.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17 11.5V8.5a1.5 1.5 0 0 1 3 0v6.5a6 6 0 0 1-6 6h-2.5a6 6 0 0 1-5.3-3.2l-2-3.8a1.6 1.6 0 0 1 2.4-2l2.4 2.2V8.5a1.5 1.5 0 0 1 3 0V11"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function ModeButton({
   label,
   value,
   active,
   onSelect,
 }: {
-  label: string;
+  label: ReactNode;
   value: EditorMode;
   active: boolean;
   onSelect: (mode: EditorMode) => void;

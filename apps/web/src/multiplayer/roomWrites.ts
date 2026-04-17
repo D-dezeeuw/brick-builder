@@ -6,13 +6,24 @@ import { boundsMatch, brickToRow } from './roomSync';
 
 /**
  * Diff local state against the previous snapshot on every zustand update
- * and push add/remove/title/bounds changes to Supabase. Inbound events set
- * `isRemoteApplying` while they mutate state, so the diff here skips those
- * ticks — no echo.
+ * and push add / remove / update / title / bounds changes to Supabase.
+ * Inbound events set `isRemoteApplying` while they mutate state, so the
+ * diff here skips those ticks — no echo.
  *
- * Brick UPDATE (i.e. move) isn't modelled yet — the editor only places and
- * removes. Add a diff branch here when move lands.
+ * UPDATE covers coord / rotation / colour / shape / transparent changes
+ * on a surviving brick id — i.e. everything select-mode can mutate.
  */
+function brickFieldsDiffer(a: Brick, b: Brick): boolean {
+  return (
+    a.gx !== b.gx ||
+    a.gy !== b.gy ||
+    a.gz !== b.gz ||
+    a.rotation !== b.rotation ||
+    a.color !== b.color ||
+    a.shape !== b.shape ||
+    (a.transparent === true) !== (b.transparent === true)
+  );
+}
 export function useRoomWrites(): void {
   useEffect(() => {
     const client = supabase;
@@ -58,8 +69,14 @@ export function useRoomWrites(): void {
 
       const added: Brick[] = [];
       const removed: string[] = [];
+      const updated: Brick[] = [];
       for (const [id, brick] of next.bricks) {
-        if (!prev.bricks.has(id)) added.push(brick);
+        const prevBrick = prev.bricks.get(id);
+        if (!prevBrick) {
+          added.push(brick);
+        } else if (brickFieldsDiffer(prevBrick, brick)) {
+          updated.push(brick);
+        }
       }
       for (const id of prev.bricks.keys()) {
         if (!next.bricks.has(id)) removed.push(id);
@@ -81,6 +98,25 @@ export function useRoomWrites(): void {
           .in('id', removed)
           .then(({ error }) => {
             if (error) console.warn('[room] delete bricks failed:', error);
+          });
+      }
+      for (const brick of updated) {
+        // One row per update — Supabase's .update().eq() is per-id and
+        // we don't have many simultaneous moves to justify batching.
+        void client
+          .from('bricks')
+          .update({
+            gx: brick.gx,
+            gy: brick.gy,
+            gz: brick.gz,
+            rotation: brick.rotation,
+            color: brick.color,
+            shape: brick.shape,
+            transparent: brick.transparent === true,
+          })
+          .eq('id', brick.id)
+          .then(({ error }) => {
+            if (error) console.warn('[room] update brick failed:', error);
           });
       }
 

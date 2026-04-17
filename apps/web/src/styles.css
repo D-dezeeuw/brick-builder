@@ -1279,6 +1279,12 @@ body.space-panning .canvas-host > canvas:active {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3) inset;
 }
 
+.mode-btn__hand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .color-row {
   display: grid;
   grid-template-columns: repeat(8, 1fr);

@@ -107,3 +107,53 @@ export function eraseBrick(id: string): boolean {
   });
   return true;
 }
+
+/**
+ * Move a brick by (dx, dy, dz). Rejects if the target footprint
+ * collides with any other brick or lands below the baseplate. On
+ * success registers an undoable command so arrow-key nudges are
+ * individually reversible.
+ */
+export function moveBrickCmd(id: string, dx: number, dy: number, dz: number): boolean {
+  const store = useEditorStore.getState();
+  const before = store.bricks.get(id);
+  if (!before) return false;
+  const target = { gx: before.gx + dx, gy: before.gy + dy, gz: before.gz + dz };
+  const ok = store.updateBrick(id, target);
+  if (!ok) return false;
+  commandStack.run({
+    do: () => {
+      useEditorStore.getState().updateBrick(id, target);
+    },
+    undo: () => {
+      useEditorStore.getState().updateBrick(id, {
+        gx: before.gx,
+        gy: before.gy,
+        gz: before.gz,
+      });
+    },
+  });
+  return true;
+}
+
+/**
+ * Rotate a brick 90° clockwise around Y (so R cycles through 0→1→2→3→0).
+ * Collision-checked; same command-stack pattern as move.
+ */
+export function rotateBrickCmd(id: string): boolean {
+  const store = useEditorStore.getState();
+  const before = store.bricks.get(id);
+  if (!before) return false;
+  const nextRot = ((before.rotation + 1) % 4) as unknown as Brick['rotation'];
+  const ok = store.updateBrick(id, { rotation: nextRot });
+  if (!ok) return false;
+  commandStack.run({
+    do: () => {
+      useEditorStore.getState().updateBrick(id, { rotation: nextRot });
+    },
+    undo: () => {
+      useEditorStore.getState().updateBrick(id, { rotation: before.rotation });
+    },
+  });
+  return true;
+}

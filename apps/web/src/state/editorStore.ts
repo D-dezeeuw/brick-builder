@@ -38,7 +38,7 @@ function nextId(): string {
 
 type PlacementInput = Omit<Brick, 'id'>;
 
-export type EditorMode = 'build' | 'erase';
+export type EditorMode = 'build' | 'erase' | 'select';
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';
 
 const HOTBAR_SIZE = 9;
@@ -158,6 +158,18 @@ type EditorState = {
   /** Re-insert a brick with its original id (undo/redo path). Returns true on success. */
   restoreBrick: (brick: Brick) => boolean;
   removeBrickById: (id: string) => boolean;
+  /**
+   * Apply a partial update to an existing brick (coords, rotation,
+   * colour, shape, transparent). Fails if the new footprint collides
+   * with another brick or lands below the baseplate.
+   */
+  updateBrick: (id: string, patch: Partial<Omit<Brick, 'id'>>) => boolean;
+  /** Convenience: shift an existing brick by deltas. Same rejection rules as updateBrick. */
+  moveBrick: (id: string, dx: number, dy: number, dz: number) => boolean;
+
+  /** Currently selected brick in Hand/select mode. null when nothing is selected. */
+  selectedBrickId: string | null;
+  setSelectedBrickId: (id: string | null) => void;
 
   setTitle: (title: string) => void;
   setShape: (shape: BrickShape) => void;
@@ -221,6 +233,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mirrorAxis: 'off',
   rotation: 0,
   mode: 'build',
+  selectedBrickId: null,
   quality: 'high',
   lightIntensity: 1.0,
   lightWarmth: 0,
@@ -298,7 +311,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeBrickById: (id) => {
-    const { bricks, cellIndex } = get();
+    const { bricks, cellIndex, selectedBrickId } = get();
     const brick = bricks.get(id);
     if (!brick) return false;
     const cells = footprintCells(brick.shape, brick.gx, brick.gy, brick.gz, brick.rotation);
@@ -306,9 +319,52 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     nextBricks.delete(id);
     const nextIndex = new Map(cellIndex);
     for (const c of cells) nextIndex.delete(cellKey(c.gx, c.gy, c.gz));
+    set({
+      bricks: nextBricks,
+      cellIndex: nextIndex,
+      // Clear the selection if the removed brick was selected.
+      selectedBrickId: selectedBrickId === id ? null : selectedBrickId,
+    });
+    return true;
+  },
+
+  updateBrick: (id, patch) => {
+    const { bricks, cellIndex } = get();
+    const prev = bricks.get(id);
+    if (!prev) return false;
+    const next = { ...prev, ...patch, id };
+    if (next.gy < 0) return false;
+
+    const oldCells = footprintCells(prev.shape, prev.gx, prev.gy, prev.gz, prev.rotation);
+    const newCells = footprintCells(next.shape, next.gx, next.gy, next.gz, next.rotation);
+
+    // Collision check: every new cell must be empty OR currently
+    // occupied by this same brick (moving by < footprint).
+    for (const c of newCells) {
+      const occupier = cellIndex.get(cellKey(c.gx, c.gy, c.gz));
+      if (occupier && occupier !== id) return false;
+    }
+
+    const nextIndex = new Map(cellIndex);
+    for (const c of oldCells) nextIndex.delete(cellKey(c.gx, c.gy, c.gz));
+    for (const c of newCells) nextIndex.set(cellKey(c.gx, c.gy, c.gz), id);
+    const nextBricks = new Map(bricks);
+    nextBricks.set(id, next);
     set({ bricks: nextBricks, cellIndex: nextIndex });
     return true;
   },
+
+  moveBrick: (id, dx, dy, dz) => {
+    const prev = get().bricks.get(id);
+    if (!prev) return false;
+    return get().updateBrick(id, {
+      gx: prev.gx + dx,
+      gy: prev.gy + dy,
+      gz: prev.gz + dz,
+    });
+  },
+
+  setSelectedBrickId: (id) => set({ selectedBrickId: id }),
 
   setTitle: (title) => set({ title }),
   setShape: (shape) =>

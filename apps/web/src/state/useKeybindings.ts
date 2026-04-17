@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useEditorStore } from './editorStore';
-import { commandStack } from './commandStack';
+import { commandStack, eraseBrick, moveBrickCmd, rotateBrickCmd } from './commandStack';
 import { useHelpStore } from './helpStore';
 
 /** Global keyboard shortcuts. Ignores events from form fields. */
@@ -38,19 +38,39 @@ export function useKeybindings() {
       if (mod || e.altKey) return;
 
       const store = useEditorStore.getState();
+      const selected =
+        store.mode === 'select' && store.selectedBrickId ? store.selectedBrickId : null;
+
+      // Esc deselects in select mode — always handled, no other use
+      // of Esc at this layer.
+      if (e.key === 'Escape' && selected) {
+        store.setSelectedBrickId(null);
+        e.preventDefault();
+        return;
+      }
+
+      // Delete / Backspace remove the selected brick.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+        eraseBrick(selected);
+        e.preventDefault();
+        return;
+      }
 
       if (e.key === 'r' || e.key === 'R') {
-        store.rotateCursor();
+        if (selected) rotateBrickCmd(selected);
+        else store.rotateCursor();
         e.preventDefault();
         return;
       }
       if (e.key === 'q' || e.key === 'Q') {
-        store.bumpLayer(-1);
+        if (selected) moveBrickCmd(selected, 0, -1, 0);
+        else store.bumpLayer(-1);
         e.preventDefault();
         return;
       }
       if (e.key === 'e' || e.key === 'E') {
-        store.bumpLayer(1);
+        if (selected) moveBrickCmd(selected, 0, 1, 0);
+        else store.bumpLayer(1);
         e.preventDefault();
         return;
       }
