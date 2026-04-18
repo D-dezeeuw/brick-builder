@@ -2311,7 +2311,12 @@ body.space-panning .canvas-host > canvas:active {
   display: none;
   position: absolute;
   right: 12px;
-  bottom: 12px;
+  /* Lifted above the chat launcher's 52-px footprint (bottom: 16px +
+     ~36-px pill height) + an 8-px breathing gap. Reserved
+     unconditionally — the chat launcher only shows in rooms, but the
+     empty clearance in solo mode is imperceptible at mobile scale and
+     saves us a React subscription + conditional class. */
+  bottom: 76px;
   z-index: 5;
   flex-direction: column;
   gap: 6px;
