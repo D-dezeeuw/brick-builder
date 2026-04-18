@@ -225,6 +225,12 @@ type EditorState = {
    * brick is scrubbed but the rest of the selection stays).
    */
   selectedIds: Set<string>;
+  /**
+   * When true, the next tap on a brick copies its shape / color /
+   * transparent state into the cursor instead of placing or picking up.
+   * Mobile equivalent of desktop Alt-click. Self-clears after one use.
+   */
+  eyedropperArmed: boolean;
 
   addBrick: (input: PlacementInput) => string | null;
   /** Re-insert a brick with its original id (undo/redo path). Returns true on success. */
@@ -320,6 +326,7 @@ type EditorState = {
     color: BrickColor,
     transparent: boolean,
   ) => void;
+  setEyedropperArmed: (b: boolean) => void;
 
   /** Flatten current scene to a serialisable Creation (for save/share/export). */
   serializeCreation: () => Creation;
@@ -393,6 +400,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeLayerId: DEFAULT_LAYER_ID,
   views: [],
   selectedIds: new Set<string>(),
+  eyedropperArmed: false,
 
   canPlaceAt: (shape, gx, gy, gz, rotation) => {
     if (gy < 0) return false;
@@ -680,6 +688,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return mutated ? { bricks: nextBricks } : s;
     });
   },
+  setEyedropperArmed: (b) => set({ eyedropperArmed: b }),
   toggleGroupSelection: (layerId, shape, color, transparent) => {
     set((s) => {
       const matches: string[] = [];

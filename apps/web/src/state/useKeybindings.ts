@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { useEditorStore } from './editorStore';
-import { cancelCarry, commandStack } from './commandStack';
+import {
+  cancelCarry,
+  commandStack,
+  deleteSelection,
+  duplicateSelection,
+} from './commandStack';
 import { useHelpStore } from './helpStore';
 
 /** Global keyboard shortcuts. Ignores events from form fields. */
@@ -36,6 +41,16 @@ export function useKeybindings() {
         return;
       }
 
+      // Cmd/Ctrl+D → duplicate selection. Browser default on mac is
+      // "Bookmark this page"; we preventDefault before that runs.
+      if (mod && (e.key === 'd' || e.key === 'D') && !e.shiftKey) {
+        if (useEditorStore.getState().selectedIds.size > 0) {
+          duplicateSelection();
+          e.preventDefault();
+          return;
+        }
+      }
+
       // Shift+? (the '?' key on most layouts) toggles the help modal.
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         useHelpStore.getState().toggle();
@@ -45,6 +60,15 @@ export function useKeybindings() {
 
       // Plain-key shortcuts — ignore when a modifier is held.
       if (mod || e.altKey) return;
+
+      // Delete / Backspace — bulk-remove the current selection.
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (useEditorStore.getState().selectedIds.size > 0) {
+          deleteSelection();
+          e.preventDefault();
+          return;
+        }
+      }
 
       // Esc has layered semantics: if the user is carrying a brick
       // that's the primary cancel. Otherwise, a non-empty multi-

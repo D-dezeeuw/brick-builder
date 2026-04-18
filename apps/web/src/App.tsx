@@ -9,8 +9,10 @@ import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
 import { ChatPanel } from './ui/ChatPanel';
+import { MobileActionBar } from './ui/MobileActionBar';
 import { ObserveBanner } from './ui/ObserveBanner';
 import { PasswordPromptModal } from './ui/PasswordPromptModal';
+import { SelectionActionBar } from './ui/SelectionActionBar';
 import { SettingsModal } from './ui/SettingsModal';
 import { Toasts } from './ui/Toasts';
 import { useFirstRunHelp, useHelpStore } from './state/helpStore';
@@ -77,6 +79,8 @@ export function App() {
         )}
         <RenderOverlay />
         <Hotbar />
+        <MobileActionBar />
+        <SelectionActionBar />
         <ImportDropZone />
       </main>
       <ObserveBanner />

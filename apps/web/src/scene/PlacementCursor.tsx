@@ -26,6 +26,7 @@ type HoverTarget = {
 const DRAG_THRESHOLD_PX = 5;
 const CLICK_MAX_MS = 500;
 const TOUCH_CLICK_MAX_MS = 1500;
+const LONG_PRESS_MS = 500;
 const TOP_NORMAL_THRESHOLD = 0.5;
 
 export function PlacementCursor() {
@@ -65,6 +66,13 @@ export function PlacementCursor() {
     // Shift-click in Hand mode toggles a brick in the multi-selection.
     // Captured on down so modifier changes mid-drag don't skew intent.
     let downShift = false;
+    // Long-press state — on touch this is the mobile equivalent of a
+    // right-click delete. Timer starts on pointerdown over a brick;
+    // any significant pointer motion or early pointerup cancels. When
+    // the timer fires we erase the brick and mark the gesture consumed
+    // so onUp doesn't also try to place.
+    let longPressTimer: number | null = null;
+    let longPressFired = false;
 
     const computeHover = (clientX: number, clientY: number): HoverTarget | null => {
       const rect = dom.getBoundingClientRect();
@@ -119,10 +127,24 @@ export function PlacementCursor() {
       });
     };
 
+    const cancelLongPress = () => {
+      if (longPressTimer !== null) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+
     const onMove = (e: PointerEvent) => {
       // Any real pointer motion invalidates the arrow-key nudge — the mouse
       // is now the source of truth again.
       useEditorStore.getState().resetPlacementOffset();
+      // Moving the finger more than a few pixels cancels a pending
+      // long-press (the user was scrolling / orbiting, not holding).
+      if (activePointerId !== null && e.pointerId === activePointerId) {
+        const dx = Math.abs(e.clientX - downX);
+        const dy = Math.abs(e.clientY - downY);
+        if (dx > DRAG_THRESHOLD_PX || dy > DRAG_THRESHOLD_PX) cancelLongPress();
+      }
       // For mouse, track hover regardless of button state (hover preview).
       // For touch/pen, only follow the active pointer to avoid confusing
       // the ghost with a 2nd finger's path.
@@ -139,10 +161,12 @@ export function PlacementCursor() {
         // Second pointer (e.g. 2nd finger) — user is starting a camera gesture.
         // Cancel in-flight placement so we don't drop a brick on release.
         cancelled = true;
+        cancelLongPress();
         return;
       }
       activePointerId = e.pointerId;
       cancelled = false;
+      longPressFired = false;
       downX = e.clientX;
       downY = e.clientY;
       downT = performance.now();
@@ -153,10 +177,27 @@ export function PlacementCursor() {
       // Touch has no hover — update ghost immediately on touchdown so the
       // user sees where their tap landed.
       if (e.pointerType !== 'mouse') updateHoverFromEvent(e);
+
+      // Arm long-press only on the primary button (or any touch). A
+      // right-click already erases on desktop, and middle-click is
+      // typically a pan start.
+      if (e.button === 0) {
+        cancelLongPress();
+        longPressTimer = window.setTimeout(() => {
+          longPressTimer = null;
+          const h = hoverRef.current;
+          if (!h?.underBrickId) return;
+          // The normal onUp handler bails when longPressFired is true
+          // so this is the ONLY side effect of the gesture.
+          longPressFired = true;
+          eraseBrick(h.underBrickId);
+        }, LONG_PRESS_MS);
+      }
     };
 
     const onUp = (e: PointerEvent) => {
       if (e.pointerId !== activePointerId) return;
+      cancelLongPress();
       const dt = performance.now() - downT;
       const dx = Math.abs(e.clientX - downX);
       const dy = Math.abs(e.clientY - downY);
@@ -165,13 +206,18 @@ export function PlacementCursor() {
       const type = downType;
       const wasAlt = downAlt;
       const wasShift = downShift;
+      const wasLongPress = longPressFired;
       activePointerId = null;
       cancelled = false;
+      longPressFired = false;
       downBtn = -1;
       downAlt = false;
       downShift = false;
 
       if (wasCancelled) return;
+      // Long-press already erased the brick — the release shouldn't
+      // also place on top of the now-empty cell.
+      if (wasLongPress) return;
 
       // Mouse drag-threshold distinguishes click from orbit-drag. Touch has no
       // hover, and any tap naturally has ≥ a few pixels of drift — don't cancel.
@@ -189,13 +235,23 @@ export function PlacementCursor() {
       // Eyedropper beats everything else (except right-click delete).
       // Copies shape + color + transparent from the brick under the
       // cursor into the current selection, ready for the next click.
-      if (wasAlt && btn !== 2 && h.underBrickId) {
+      // Triggered by Alt-click (desktop) OR by the mobile "armed"
+      // toggle which self-clears after one tap.
+      const eyedropperActive = wasAlt || state.eyedropperArmed;
+      if (eyedropperActive && btn !== 2 && h.underBrickId) {
         const picked = state.bricks.get(h.underBrickId);
         if (picked) {
           state.setShape(picked.shape);
           state.setColor(picked.color);
           state.setTransparentMode(picked.transparent === true);
         }
+        if (state.eyedropperArmed) state.setEyedropperArmed(false);
+        return;
+      }
+      // Armed but tap missed a brick — disarm silently so the user
+      // isn't stuck in "next tap is a pick" mode forever.
+      if (state.eyedropperArmed && !h.underBrickId) {
+        state.setEyedropperArmed(false);
         return;
       }
 
@@ -284,8 +340,10 @@ export function PlacementCursor() {
 
     const onCancel = (e: PointerEvent) => {
       if (e.pointerId === activePointerId) {
+        cancelLongPress();
         activePointerId = null;
         cancelled = false;
+        longPressFired = false;
         downBtn = -1;
       }
     };

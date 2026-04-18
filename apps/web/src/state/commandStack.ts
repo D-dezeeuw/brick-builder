@@ -235,6 +235,160 @@ export function dropCarriedBrick(input: DropInput): boolean {
 }
 
 /**
+ * Bulk-delete every currently-selected brick as a single undo step.
+ * Bricks on locked layers are skipped (a toast names the count). The
+ * selection scrubs itself naturally via removeBrickById's existing
+ * scrub behaviour, so after this the selection is empty.
+ *
+ * Returns the number of bricks actually removed (0 if nothing eligible).
+ */
+export function deleteSelection(): number {
+  if (isObserving()) return 0;
+  const state = useEditorStore.getState();
+  const ids = Array.from(state.selectedIds);
+  if (ids.length === 0) return 0;
+
+  const layerById = new Map(state.layers.map((l) => [l.id, l]));
+  const snapshots: Brick[] = [];
+  let lockedSkipped = 0;
+  for (const id of ids) {
+    const b = state.bricks.get(id);
+    if (!b) continue;
+    const layer = b.layerId ? layerById.get(b.layerId) : null;
+    if (layer?.locked) {
+      lockedSkipped++;
+      continue;
+    }
+    snapshots.push(b);
+  }
+  if (snapshots.length === 0) {
+    if (lockedSkipped > 0) {
+      useToastStore.getState().show(`All ${lockedSkipped} selected are on locked layers`, 'error');
+    }
+    return 0;
+  }
+
+  commandStack.run({
+    do: () => {
+      const s = useEditorStore.getState();
+      for (const b of snapshots) {
+        if (s.bricks.has(b.id)) s.removeBrickById(b.id);
+      }
+    },
+    undo: () => {
+      const s = useEditorStore.getState();
+      for (const b of snapshots) {
+        if (!s.bricks.has(b.id)) s.restoreBrick(b);
+      }
+    },
+  });
+
+  if (lockedSkipped > 0) {
+    useToastStore
+      .getState()
+      .show(`Deleted ${snapshots.length}, skipped ${lockedSkipped} locked`, 'success');
+  }
+  return snapshots.length;
+}
+
+/**
+ * Duplicate every currently-selected brick, offset by a few studs on
+ * the (+gx, +gz) diagonal so the copies are visible. Tries offsets
+ * of 1, 2, 3, 4, 5 studs until every duplicate fits without collision;
+ * bails with a toast if none fit.
+ *
+ * Pushes ONE compound undo step (the whole paste reverses together).
+ * After success the selection swaps to the new bricks so the user can
+ * immediately move them as a group.
+ *
+ * Returns the number of bricks duplicated (0 if nothing fit).
+ */
+export function duplicateSelection(): number {
+  if (isObserving()) return 0;
+  const s = useEditorStore.getState();
+  const ids = Array.from(s.selectedIds);
+  if (ids.length === 0) return 0;
+
+  const sources: Brick[] = [];
+  for (const id of ids) {
+    const b = s.bricks.get(id);
+    if (b) sources.push(b);
+  }
+  if (sources.length === 0) return 0;
+
+  // Try offsets until every source's copy fits at once — all-or-nothing
+  // so the paste keeps its original shape rather than dropping a few.
+  const OFFSETS: Array<[number, number]> = [
+    [1, 1],
+    [2, 2],
+    [3, 3],
+    [4, 4],
+    [5, 5],
+  ];
+  let chosen: [number, number] | null = null;
+  for (const [ox, oz] of OFFSETS) {
+    const st = useEditorStore.getState();
+    let fits = true;
+    for (const src of sources) {
+      if (!st.canPlaceAt(src.shape, src.gx + ox, src.gy, src.gz + oz, src.rotation)) {
+        fits = false;
+        break;
+      }
+    }
+    if (fits) {
+      chosen = [ox, oz];
+      break;
+    }
+  }
+  if (!chosen) {
+    useToastStore.getState().show('No room to duplicate — move the selection first', 'error');
+    return 0;
+  }
+
+  const [ox, oz] = chosen;
+  const placed: Brick[] = [];
+  for (const src of sources) {
+    const store = useEditorStore.getState();
+    const id = store.addBrick({
+      shape: src.shape,
+      color: src.color,
+      gx: src.gx + ox,
+      gy: src.gy,
+      gz: src.gz + oz,
+      rotation: src.rotation,
+      transparent: src.transparent,
+      layerId: src.layerId,
+    });
+    if (!id) continue;
+    const snap = store.bricks.get(id);
+    if (snap) {
+      placed.push(snap);
+      store.expandBaseplateFor(snap);
+    }
+  }
+  if (placed.length === 0) return 0;
+
+  commandStack.run({
+    do: () => {
+      const st = useEditorStore.getState();
+      for (const b of placed) {
+        if (!st.bricks.has(b.id)) st.restoreBrick(b);
+      }
+    },
+    undo: () => {
+      const st = useEditorStore.getState();
+      for (const b of placed) {
+        if (st.bricks.has(b.id)) st.removeBrickById(b.id);
+      }
+    },
+  });
+
+  // Swap selection to the new bricks so the user can keep moving.
+  useEditorStore.setState({ selectedIds: new Set(placed.map((b) => b.id)) });
+  return placed.length;
+}
+
+/**
  * Abandon a carry — put the brick back where it was and clear the
  * carrying state. No history entry created. Safe to call when
  * not carrying (no-op).
