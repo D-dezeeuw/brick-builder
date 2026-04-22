@@ -31,6 +31,11 @@ export function EffectsSection() {
   const smaa = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
+  const bounces = useEditorStore((s) => s.pathtracerBounces);
+  const resolutionScale = useEditorStore((s) => s.pathtracerResolutionScale);
+  const dofEnabled = useEditorStore((s) => s.pathtracerDofEnabled);
+  const fStop = useEditorStore((s) => s.pathtracerFStop);
+  const apertureBlades = useEditorStore((s) => s.pathtracerApertureBlades);
   const denoise = useEditorStore((s) => s.denoiseEnabled);
   const denoiseAlgorithm = useEditorStore((s) => s.denoiseAlgorithm);
   const denoiseStrength = useEditorStore((s) => s.denoiseStrength);
@@ -43,6 +48,11 @@ export function EffectsSection() {
   const setSmaa = useEditorStore((s) => s.setSmaaEnabled);
   const setRenderMode = useEditorStore((s) => s.setRenderMode);
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
+  const setBounces = useEditorStore((s) => s.setPathtracerBounces);
+  const setResolutionScale = useEditorStore((s) => s.setPathtracerResolutionScale);
+  const setDofEnabled = useEditorStore((s) => s.setPathtracerDofEnabled);
+  const setFStop = useEditorStore((s) => s.setPathtracerFStop);
+  const setApertureBlades = useEditorStore((s) => s.setPathtracerApertureBlades);
   const setDenoise = useEditorStore((s) => s.setDenoiseEnabled);
   const setDenoiseAlgorithm = useEditorStore((s) => s.setDenoiseAlgorithm);
   const setDenoiseStrength = useEditorStore((s) => s.setDenoiseStrength);
@@ -83,7 +93,7 @@ export function EffectsSection() {
           className="slider"
           type="range"
           min={1}
-          max={128}
+          max={512}
           step={1}
           value={maxSamples}
           onChange={(e) => setMaxSamples(Number(e.currentTarget.value))}
@@ -91,8 +101,104 @@ export function EffectsSection() {
         />
         <div className="slider-row__scale">
           <span>1</span>
-          <span>128</span>
+          <span>512</span>
         </div>
+      </div>
+      <div
+        className={`slider-row${!support.supported ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 6 }}
+      >
+        <label className="slider-row__label" htmlFor="pt-bounces">
+          <span>Ray bounces</span>
+          <span className="slider-row__value">{bounces}</span>
+        </label>
+        <input
+          id="pt-bounces"
+          className="slider"
+          type="range"
+          min={1}
+          max={8}
+          step={1}
+          value={bounces}
+          onChange={(e) => setBounces(Number(e.currentTarget.value))}
+          disabled={!support.supported}
+        />
+        <div className="slider-row__scale">
+          <span>flat</span>
+          <span>rich bleed</span>
+        </div>
+      </div>
+      <div
+        className={`slider-row${!support.supported ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 6 }}
+      >
+        <label className="slider-row__label" htmlFor="pt-resolution">
+          <span>Render resolution</span>
+          <span className="slider-row__value">{Math.round(resolutionScale * 100)}%</span>
+        </label>
+        <select
+          id="pt-resolution"
+          className="settings-select"
+          value={resolutionScale}
+          onChange={(e) => setResolutionScale(Number(e.currentTarget.value))}
+          disabled={!support.supported}
+          title="Lower values render the path tracer at reduced resolution for faster convergence"
+        >
+          <option value={0.5}>50% (fastest)</option>
+          <option value={0.75}>75% (balanced)</option>
+          <option value={1}>100% (sharpest)</option>
+        </select>
+      </div>
+      <Toggle
+        label="Depth of field"
+        hint="Finite-aperture focus blur; focuses on the orbit target"
+        checked={dofEnabled}
+        onChange={setDofEnabled}
+      />
+      <div
+        className={`slider-row${!dofEnabled || !support.supported ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 4 }}
+      >
+        <label className="slider-row__label" htmlFor="pt-fstop">
+          <span>Aperture</span>
+          <span className="slider-row__value">f/{fStop.toFixed(1)}</span>
+        </label>
+        <input
+          id="pt-fstop"
+          className="slider"
+          type="range"
+          min={1.4}
+          max={22}
+          step={0.1}
+          value={fStop}
+          onChange={(e) => setFStop(Number(e.currentTarget.value))}
+          disabled={!dofEnabled || !support.supported}
+        />
+        <div className="slider-row__scale">
+          <span>shallow</span>
+          <span>deep</span>
+        </div>
+      </div>
+      <div
+        className={`slider-row${!dofEnabled || !support.supported ? ' slider-row--disabled' : ''}`}
+        style={{ marginTop: 4 }}
+      >
+        <label className="slider-row__label" htmlFor="pt-aperture-blades">
+          <span>Bokeh shape</span>
+        </label>
+        <select
+          id="pt-aperture-blades"
+          className="settings-select"
+          value={apertureBlades}
+          onChange={(e) => setApertureBlades(Number(e.currentTarget.value))}
+          disabled={!dofEnabled || !support.supported}
+          title="Polygonal bokeh simulates real aperture blade shapes"
+        >
+          <option value={0}>Circular</option>
+          <option value={5}>Pentagonal (5)</option>
+          <option value={6}>Hexagonal (6)</option>
+          <option value={8}>Octagonal (8)</option>
+        </select>
       </div>
       <Toggle
         label="Denoise on converge"

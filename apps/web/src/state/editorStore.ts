@@ -113,11 +113,41 @@ type EditorState = {
   pathtracerSamples: number;
   /**
    * Max accumulation samples the pathtracer targets before it stops.
-   * Higher = cleaner but slower to converge; 32 is a solid default for
-   * this scene scale. User-adjustable via a slider next to the render
-   * button; range 1–128.
+   * Higher = cleaner but slower to converge. User-adjustable via a
+   * slider next to the render button; range 1–512.
    */
   pathtracerMaxSamples: number;
+  /**
+   * Ray bounce depth. Library default is 4; 5 gives visibly richer
+   * colour bleed for plastic / transmissive bricks without a steep
+   * cost jump. Range 1–8.
+   */
+  pathtracerBounces: number;
+  /**
+   * Render-buffer scale for the path tracer. <1 downsamples the PT
+   * buffer and upsamples to the canvas — big perf win, small quality
+   * cost on plastic-scale geometry. One of 0.5 / 0.75 / 1.0.
+   */
+  pathtracerResolutionScale: number;
+  /**
+   * When true, the path tracer swaps the raster PerspectiveCamera for
+   * a PhysicalCamera that simulates finite aperture depth of field.
+   * Only meaningful in render mode; raster mode always uses a pinhole.
+   */
+  pathtracerDofEnabled: boolean;
+  /**
+   * Aperture f-stop. Smaller = more blur (shallower depth of field).
+   * Photographic range: 1.4 (very shallow) to 22 (near-pinhole). The
+   * focal plane auto-tracks the OrbitControls target so the subject
+   * the user orbits around stays sharp.
+   */
+  pathtracerFStop: number;
+  /**
+   * Aperture shape: 0 = perfect circle (default), 5–8 = polygonal
+   * bokeh with that many blades. Polygonal gives the classic
+   * "sunstar" highlights some photographers prefer.
+   */
+  pathtracerApertureBlades: number;
   /** When true, the post-convergence denoise pass runs. */
   denoiseEnabled: boolean;
   /**
@@ -261,6 +291,11 @@ type EditorState = {
   setRenderMode: (b: boolean) => void;
   setPathtracerSamples: (n: number) => void;
   setPathtracerMaxSamples: (n: number) => void;
+  setPathtracerBounces: (n: number) => void;
+  setPathtracerResolutionScale: (n: number) => void;
+  setPathtracerDofEnabled: (b: boolean) => void;
+  setPathtracerFStop: (n: number) => void;
+  setPathtracerApertureBlades: (n: number) => void;
   setDenoiseEnabled: (b: boolean) => void;
   setDenoiseAlgorithm: (a: EditorState['denoiseAlgorithm']) => void;
   setDenoiseStrength: (n: number) => void;
@@ -369,7 +404,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   smaaEnabled: EFFECT_DEFAULTS.high.smaa,
   renderMode: false,
   pathtracerSamples: 0,
-  pathtracerMaxSamples: 32,
+  pathtracerMaxSamples: 64,
+  pathtracerBounces: 5,
+  pathtracerResolutionScale: 0.75,
+  pathtracerDofEnabled: false,
+  pathtracerFStop: 4.0,
+  pathtracerApertureBlades: 0,
   denoiseEnabled: true,
   denoiseAlgorithm: 'atrous',
   denoiseStrength: 1.0,
@@ -532,7 +572,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setRenderMode: (b) => set({ renderMode: b, pathtracerSamples: 0 }),
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
   setPathtracerMaxSamples: (n) =>
-    set({ pathtracerMaxSamples: Math.max(1, Math.min(128, Math.round(n))) }),
+    set({ pathtracerMaxSamples: Math.max(1, Math.min(512, Math.round(n))) }),
+  setPathtracerBounces: (n) =>
+    set({ pathtracerBounces: Math.max(1, Math.min(8, Math.round(n))) }),
+  setPathtracerResolutionScale: (n) =>
+    set({ pathtracerResolutionScale: Math.max(0.25, Math.min(1.0, n)) }),
+  setPathtracerDofEnabled: (b) => set({ pathtracerDofEnabled: b }),
+  setPathtracerFStop: (n) => set({ pathtracerFStop: Math.max(1.4, Math.min(22, n)) }),
+  setPathtracerApertureBlades: (n) => {
+    const clamped = Math.max(0, Math.min(8, Math.round(n)));
+    // Valid values: 0 (circle), 5, 6, 7, 8. Collapse 1-4 to 0 so the
+    // UI selector's explicit options are the only in-practice values.
+    set({ pathtracerApertureBlades: clamped < 5 ? 0 : clamped });
+  },
   setDenoiseEnabled: (b) => set({ denoiseEnabled: b }),
   setDenoiseAlgorithm: (a) => set({ denoiseAlgorithm: a }),
   setDenoiseStrength: (n) => set({ denoiseStrength: Math.max(0.2, Math.min(3.0, n)) }),

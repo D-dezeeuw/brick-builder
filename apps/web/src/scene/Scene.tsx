@@ -32,6 +32,12 @@ const PathtracerBusBridge = lazy(() =>
 const PathtracingExpansion = lazy(() =>
   import('./PathtracingExpansion').then((m) => ({ default: m.PathtracingExpansion })),
 );
+const PathtracerBVHWorker = lazy(() =>
+  import('./PathtracerBVHWorker').then((m) => ({ default: m.PathtracerBVHWorker })),
+);
+const PathtracerCamera = lazy(() =>
+  import('./PathtracerCamera').then((m) => ({ default: m.PathtracerCamera })),
+);
 const PathtracerDenoise = lazy(() =>
   import('./PathtracerDenoise').then((m) => ({ default: m.PathtracerDenoise })),
 );
@@ -49,6 +55,8 @@ export function Scene() {
   const smaaEnabled = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
   const pathtracerMaxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
+  const pathtracerBounces = useEditorStore((s) => s.pathtracerBounces);
+  const pathtracerResolutionScale = useEditorStore((s) => s.pathtracerResolutionScale);
   // When the user has been idle long enough, cut the rAF loop entirely
   // so GPU/CPU go to ~zero until the next input or store change. The
   // last rendered frame stays visible on the canvas — no visible
@@ -186,17 +194,24 @@ export function Scene() {
       {renderMode ? (
         <Suspense fallback={null}>
           {/* `samples` is the max accumulated — once reached, the tracer
-              stops and the GPU goes idle. User-configurable via the
-              slider in the settings modal; 32 by default, bounded to
-              1–128 in the store. minSamples is clamped so low maxes
-              don't wedge the tracer in a pre-display state. */}
+              stops and the GPU goes idle. All tuning knobs are store-
+              driven; `minSamples` is clamped so low maxes don't wedge
+              the tracer in a pre-display state. `resolutionFactor` <1
+              downsamples the PT buffer (big perf win). `renderDelay`
+              stops thrashing while the user is actively orbiting.
+              `fadeDuration` softens the raster→PT handoff. */}
           <Pathtracer
             minSamples={Math.min(4, pathtracerMaxSamples)}
             samples={pathtracerMaxSamples}
-            bounces={3}
+            bounces={pathtracerBounces}
+            resolutionFactor={pathtracerResolutionScale}
+            renderDelay={250}
+            fadeDuration={300}
             enabled
           >
             {sceneContent}
+            <PathtracerBVHWorker />
+            <PathtracerCamera />
             <PathtracingExpansion />
             <PathtracerSampleReporter />
             <PathtracerBusBridge />
