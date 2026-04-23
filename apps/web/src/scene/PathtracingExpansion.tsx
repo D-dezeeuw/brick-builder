@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   Box3,
+  type BufferGeometry,
   Color,
   Frustum,
   InstancedMesh,
@@ -17,8 +18,11 @@ import {
   type Texture,
 } from 'three';
 import { usePathtracer } from '@react-three/gpu-pathtracer';
+import { type Brick, type BrickShape, STUD_PITCH_MM } from '@brick/shared';
+import { getGeometry } from '../bricks/geometry/builders';
 import { reflectivityToProps } from '../bricks/material';
 import { useEditorStore } from '../state/editorStore';
+import { mergeInstances } from './mergeInstances';
 import { IS_MOBILE } from './ptPlatform';
 
 // Re-expansion triggers when the camera has translated by more than
@@ -34,6 +38,21 @@ const REEXPAND_ROT_THRESHOLD_RAD = (20 * Math.PI) / 180;
 // swings tip past REEXPAND_ROT_THRESHOLD_RAD and force a rebuild
 // anyway, which is the correct fallback.
 const CULL_FOV_MULTIPLIER = 2.0;
+
+// Chunk size for grid-chunked geometry merging (PT-24). At 16 studs
+// (= 16 × STUD_PITCH_MM = 128mm) each chunk holds up to 256 bricks,
+// which is enough to meaningfully shrink BVH leaf count on a dense
+// build without making chunks so large that distance-LOD gets
+// mis-classified (a chunk diagonal is ≈ 181mm, well under our
+// LOD distance below).
+const CHUNK_SIZE_MM = 16 * STUD_PITCH_MM;
+
+// LOD threshold for stud decimation (PT-23). Above this distance from
+// the camera, we swap the brick geometry for its no-studs variant —
+// studs are ≈5mm across and 1.6mm tall, which at 800mm+ viewing
+// distance subtend well under a pixel on a 1080p canvas. Saves
+// per-brick vertex count by ~50-70% depending on shape.
+const LOD_DISTANCE_MM = 800;
 
 /**
  * three-gpu-pathtracer@0.0.23 (the last release compatible with three 0.171)
@@ -120,6 +139,7 @@ export function PathtracingExpansion() {
 
   useLayoutEffect(() => {
     const clones: Mesh[] = [];
+    const mergedGeos: BufferGeometry[] = [];
     const hidden: InstancedMesh[] = [];
     const ptMaterials: Material[] = [];
     const materialByKey = new Map<string, MeshPhysicalMaterial | MeshStandardMaterial>();
@@ -132,9 +152,12 @@ export function PathtracingExpansion() {
     // same way perspective does.
     const activeCamera = cameraRef.current;
     const frustum = buildCullFrustum(activeCamera);
+    const cameraPos = activeCamera.position;
 
     // A shared Box3 we transform to world space for each instance.
     const instanceBox = new Box3();
+    const instancePos = new Vector3();
+    const chunkCenter = new Vector3();
 
     scene.traverse((obj) => {
       const im = obj as InstancedMesh;
@@ -147,16 +170,14 @@ export function PathtracingExpansion() {
       if (!localBox) return;
 
       const firstMat = Array.isArray(im.material) ? im.material[0] : im.material;
+      const keepMaterial = firstMat?.userData?.ptKeepMaterial === true;
 
       // Opt-out flag set by non-brick InstancedMeshes (currently only
       // the baseplate stud field). Those meshes keep their own colour
       // and roughness — but we still clone the material to attach an
       // explicit envMap, because the PT reads material.envMap directly
       // rather than scene.environment.
-      const cloneMat =
-        firstMat?.userData?.ptKeepMaterial === true
-          ? cloneWithEnv(firstMat, scene.environment)
-          : null;
+      const cloneMat = keepMaterial ? cloneWithEnv(firstMat, scene.environment) : null;
 
       let ptMaterial: Material | null = cloneMat;
       if (!ptMaterial) {
@@ -173,6 +194,21 @@ export function PathtracingExpansion() {
       }
       if (ptMaterial && !ptMaterials.includes(ptMaterial)) ptMaterials.push(ptMaterial);
 
+      // Brick buckets tag their items via userData in InstancedBricks;
+      // we read the first item's shape to drive LOD-geometry lookup.
+      // Baseplate studs / other non-brick meshes don't have items,
+      // they stay at full detail.
+      const items = im.userData.items as Brick[] | undefined;
+      const shape = items?.[0]?.shape as BrickShape | undefined;
+      const isBrick = !keepMaterial && shape !== undefined;
+
+      // Chunk bucket: key = "chunkX,chunkZ". We also compute the
+      // world-space centre of each chunk on the fly (from the first
+      // instance we see in that chunk) so the LOD decision below is
+      // a single precomputed distance — not a per-instance distance.
+      const chunkMatrices = new Map<string, Matrix4[]>();
+      const chunkCentres = new Map<string, Vector3>();
+
       for (let i = 0; i < im.count; i++) {
         im.getMatrixAt(i, m);
 
@@ -184,15 +220,50 @@ export function PathtracingExpansion() {
         instanceBox.copy(localBox).applyMatrix4(m);
         if (!frustum.intersectsBox(instanceBox)) continue;
 
-        const clone = new Mesh(im.geometry, ptMaterial ?? im.material);
+        instancePos.setFromMatrixPosition(m);
+        const cx = Math.floor(instancePos.x / CHUNK_SIZE_MM);
+        const cz = Math.floor(instancePos.z / CHUNK_SIZE_MM);
+        const chunkKey = `${cx},${cz}`;
+        let mats = chunkMatrices.get(chunkKey);
+        if (!mats) {
+          mats = [];
+          chunkMatrices.set(chunkKey, mats);
+          // Chunk centre for LOD distance: approximated as the
+          // instance's XZ plus a y of 0. The few bricks' worth of
+          // vertical error inside a chunk is far below LOD_DISTANCE_MM.
+          chunkCentres.set(
+            chunkKey,
+            new Vector3(
+              (cx + 0.5) * CHUNK_SIZE_MM,
+              0,
+              (cz + 0.5) * CHUNK_SIZE_MM,
+            ),
+          );
+        }
+        mats.push(m.clone());
+      }
+
+      // Per chunk: pick LOD (studded vs no-studs) and merge.
+      for (const [chunkKey, mats] of chunkMatrices) {
+        chunkCenter.copy(chunkCentres.get(chunkKey)!);
+        const dist = cameraPos.distanceTo(chunkCenter);
+        const useLOD = isBrick && shape !== undefined && dist > LOD_DISTANCE_MM;
+        const sourceGeo = useLOD ? getGeometry(shape!, false) : im.geometry;
+
+        const merged = mergeInstances(sourceGeo, mats);
+        mergedGeos.push(merged);
+
+        const clone = new Mesh(merged, ptMaterial ?? im.material);
         clone.matrixAutoUpdate = false;
-        clone.matrix.copy(m);
+        // Matrices are baked into the merged vertices — world matrix
+        // is identity.
         clone.castShadow = im.castShadow;
         clone.receiveShadow = im.receiveShadow;
         im.parent.add(clone);
         clone.updateMatrixWorld(true);
         clones.push(clone);
       }
+
       im.visible = false;
       hidden.push(im);
     });
@@ -237,6 +308,7 @@ export function PathtracingExpansion() {
       for (const clone of clones) clone.parent?.remove(clone);
       for (const im of hidden) im.visible = true;
       for (const mat of ptMaterials) mat.dispose();
+      for (const g of mergedGeos) g.dispose();
     };
   }, [scene, reflectivity, expansionKey, pathtracer]);
 

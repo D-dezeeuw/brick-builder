@@ -66,6 +66,19 @@ export function getCached(key: string): WebGLRenderTarget | null {
   return e.rt;
 }
 
+/**
+ * Look up the cached RT for a live camera pose. Convenience wrapper
+ * around `computeCacheKey` + `getCached` for call sites (the capture
+ * path, mainly) that have a camera + resolution scale but shouldn't
+ * need to know how the key is built.
+ */
+export function getCachedForPose(
+  camera: PerspectiveCamera,
+  resolutionScale: number,
+): WebGLRenderTarget | null {
+  return getCached(computeCacheKey(camera, resolutionScale));
+}
+
 export function putCached(key: string, rt: WebGLRenderTarget): void {
   const existing = cache.get(key);
   if (existing) existing.rt.dispose();

@@ -86,6 +86,9 @@ const PathtracerConvergence = lazy(() =>
 const CachedPathtraceView = lazy(() =>
   import('./CachedPathtraceView').then((m) => ({ default: m.CachedPathtraceView })),
 );
+const PathtracerStabilityPatch = lazy(() =>
+  import('./PathtracerStabilityPatch').then((m) => ({ default: m.PathtracerStabilityPatch })),
+);
 
 const INITIAL_BASEPLATE_STUDS = 32;
 
@@ -414,6 +417,7 @@ function PTRenderer({
       <PathtracingExpansion />
       <PathtracerSampleReporter />
       <PathtracerConvergence />
+      <PathtracerStabilityPatch />
       <PathtracerBusBridge />
       <PathtracerDenoise />
     </Pathtracer>

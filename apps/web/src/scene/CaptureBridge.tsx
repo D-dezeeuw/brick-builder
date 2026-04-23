@@ -3,6 +3,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
+  type PerspectiveCamera,
   PlaneGeometry,
   Scene,
   SRGBColorSpace,
@@ -14,7 +15,9 @@ import {
 } from 'three';
 import { claimPendingCapture } from '../state/captureBus';
 import { getDenoiseTexture } from '../state/denoiseBus';
+import { useEditorStore } from '../state/editorStore';
 import { getActivePathtracer } from '../state/pathtracerBus';
+import { getCachedForPose } from './pathtraceCache';
 
 /**
  * Watches for PNG-capture requests and services them with a render-to-target
@@ -48,14 +51,31 @@ async function captureToBlob(
   const height = Math.max(1, Math.round(size.y));
 
   // Prefer, in order:
-  //   1. The denoised target — already LDR sRGB, fastest readback, matches
-  //      what the user is looking at post-convergence.
-  //   2. The raw PT accumulator — HDR, needs a tone-map blit.
-  //   3. The rasterized scene — when not in render mode at all.
+  //   1. The pose-keyed converged cache — linear HDR, but guaranteed
+  //      converged (the convergence monitor only snapshots once the
+  //      RMS delta stabilises). This is also the ONLY route that
+  //      works when CachedPathtraceView is mounted instead of the
+  //      live <Pathtracer>, since there's no `pathtracer.samples`
+  //      to read in that path.
+  //   2. The denoised target — already LDR sRGB, fastest readback,
+  //      matches what the user is looking at post-convergence.
+  //   3. The raw PT accumulator — HDR, needs a tone-map blit. Lowest-
+  //      quality PT route because it captures whatever sample count
+  //      happens to be live when the user clicks save.
+  //   4. The rasterized scene — when not in render mode at all.
+  const cachedRT =
+    camera instanceof Object && 'isPerspectiveCamera' in camera
+      ? getCachedForPose(
+          camera as PerspectiveCamera,
+          useEditorStore.getState().pathtracerResolutionScale,
+        )
+      : null;
   const denoise = getDenoiseTexture();
   const pathtracer = getActivePathtracer();
   let pixels: Uint8Array;
-  if (denoise) {
+  if (cachedRT) {
+    pixels = readTonemapped(gl, cachedRT.texture, width, height);
+  } else if (denoise) {
     pixels = readDenoiseTexture(gl, denoise, width, height);
   } else if (pathtracer && pathtracer.samples > 0) {
     pixels = readTonemapped(gl, pathtracer.target.texture, width, height);
