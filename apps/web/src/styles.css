@@ -40,6 +40,22 @@ body,
     'canvas sidebar';
   height: 100dvh;
   transition: grid-template-columns 0.18s ease;
+  /* Mobile: long-press would otherwise summon iOS / Android text
+     selection and the "callout" magnifier, which is nonsense for a
+     WebGL editor. Suppress globally; real inputs re-enable below. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Form controls need normal text-selection behaviour so paste,
+   copy-to-clipboard, and caret navigation continue to work inside
+   the join-room input, password inputs, chat, title editor, etc. */
+.app-shell input,
+.app-shell textarea,
+.app-shell [contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app-shell--sidebar-open {

@@ -24,6 +24,13 @@ type HoverTarget = {
 };
 
 const DRAG_THRESHOLD_PX = 5;
+// Touch needs a looser threshold than mouse — real taps drift 3–8px
+// from fingertip contact area alone, and we don't want to reject them.
+// But one-finger orbits easily move 20px+, so 10px cleanly separates
+// "tap" from "I was orbiting and released". Without this, orbit-release
+// fell through to the placement branch and dropped bricks on every
+// camera drag on mobile.
+const TOUCH_DRAG_THRESHOLD_PX = 10;
 const CLICK_MAX_MS = 500;
 const TOUCH_CLICK_MAX_MS = 1500;
 const LONG_PRESS_MS = 500;
@@ -219,12 +226,15 @@ export function PlacementCursor() {
       // also place on top of the now-empty cell.
       if (wasLongPress) return;
 
-      // Mouse drag-threshold distinguishes click from orbit-drag. Touch has no
-      // hover, and any tap naturally has ≥ a few pixels of drift — don't cancel.
+      // Distinguish click/tap from orbit-drag. Mouse uses the tight
+      // 5px threshold it's always had; touch uses a looser 10px that
+      // accommodates fingertip drift on a real tap but still rejects
+      // one-finger orbits (which typically move ≥ 20px).
       if (type === 'mouse') {
         if (dx > DRAG_THRESHOLD_PX || dy > DRAG_THRESHOLD_PX) return;
         if (dt > CLICK_MAX_MS) return;
       } else {
+        if (dx > TOUCH_DRAG_THRESHOLD_PX || dy > TOUCH_DRAG_THRESHOLD_PX) return;
         if (dt > TOUCH_CLICK_MAX_MS) return;
       }
 
