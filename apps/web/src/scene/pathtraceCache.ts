@@ -151,6 +151,11 @@ type Snapshot = {
   lightIntensity: number;
   lightWarmth: number;
   envIntensity: number;
+  envRotation: number;
+  envBackgroundVisible: boolean;
+  envBackgroundBlur: number;
+  envBackgroundIntensity: number;
+  toneMapping: string;
   quality: string;
   pathtracerBounces: number;
   pathtracerDofEnabled: boolean;
@@ -167,6 +172,11 @@ function snap(state: ReturnType<typeof useEditorStore.getState>): Snapshot {
     lightIntensity: state.lightIntensity,
     lightWarmth: state.lightWarmth,
     envIntensity: state.envIntensity,
+    envRotation: state.envRotation,
+    envBackgroundVisible: state.envBackgroundVisible,
+    envBackgroundBlur: state.envBackgroundBlur,
+    envBackgroundIntensity: state.envBackgroundIntensity,
+    toneMapping: state.toneMapping,
     quality: state.quality,
     pathtracerBounces: state.pathtracerBounces,
     pathtracerDofEnabled: state.pathtracerDofEnabled,

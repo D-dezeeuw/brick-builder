@@ -3,16 +3,21 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import {
   ACESFilmicToneMapping,
+  AgXToneMapping,
   Color,
+  LinearToneMapping,
+  type Material,
   MOUSE,
+  NeutralToneMapping,
   PCFSoftShadowMap,
   type PerspectiveCamera,
   Quaternion,
   TOUCH,
+  type ToneMapping,
   type WebGLRenderTarget,
 } from 'three';
 import { computeCacheKey, getCached } from './pathtraceCache';
-import { STUD_PITCH_MM } from '@brick/shared';
+import { PLATE_HEIGHT_MM, STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { CameraViewBridge } from './CameraViewBridge';
 import { CaptureBridge } from './CaptureBridge';
@@ -38,11 +43,24 @@ import { IS_MOBILE } from './ptPlatform';
 // downside.
 const PT_TILES: [number, number] = IS_MOBILE ? [5, 5] : [4, 4];
 
+const TONE_MAPPING_ENUM: Record<
+  'aces' | 'agx' | 'neutral' | 'linear',
+  ToneMapping
+> = {
+  aces: ACESFilmicToneMapping,
+  agx: AgXToneMapping,
+  neutral: NeutralToneMapping,
+  linear: LinearToneMapping,
+};
+
 // Heavy optional modules split out of the main bundle. Users on Low/Med with
 // no post-fx and render mode off never pay the cost.
 const PostFX = lazy(() => import('./PostFX').then((m) => ({ default: m.PostFX })));
 const Pathtracer = lazy(() =>
   import('@react-three/gpu-pathtracer').then((m) => ({ default: m.Pathtracer })),
+);
+const ShapedAreaLight = lazy(() =>
+  import('@react-three/gpu-pathtracer').then((m) => ({ default: m.ShapedAreaLight })),
 );
 const PathtracerSampleReporter = lazy(() =>
   import('./PathtracerSampleReporter').then((m) => ({ default: m.PathtracerSampleReporter })),
@@ -77,6 +95,11 @@ export function Scene() {
   const lightIntensity = useEditorStore((s) => s.lightIntensity);
   const lightWarmth = useEditorStore((s) => s.lightWarmth);
   const envIntensity = useEditorStore((s) => s.envIntensity);
+  const envRotation = useEditorStore((s) => s.envRotation);
+  const envBackgroundVisible = useEditorStore((s) => s.envBackgroundVisible);
+  const envBackgroundBlur = useEditorStore((s) => s.envBackgroundBlur);
+  const envBackgroundIntensity = useEditorStore((s) => s.envBackgroundIntensity);
+  const toneMapping = useEditorStore((s) => s.toneMapping);
   const aoEnabled = useEditorStore((s) => s.aoEnabled);
   const bloomEnabled = useEditorStore((s) => s.bloomEnabled);
   const smaaEnabled = useEditorStore((s) => s.smaaEnabled);
@@ -166,28 +189,77 @@ export function Scene() {
           <Suspense fallback={null}>
             <Environment
               files={`${import.meta.env.BASE_URL}hdri/studio_small.hdr`}
-              background={false}
+              background={envBackgroundVisible}
               environmentIntensity={envIntensity}
+              environmentRotation={[0, envRotation, 0]}
+              backgroundBlurriness={envBackgroundBlur}
+              backgroundIntensity={envBackgroundIntensity}
+              backgroundRotation={[0, envRotation, 0]}
             />
           </Suspense>
         </ResourceBoundary>
       )}
       <ambientLight intensity={ambientBase * lightIntensity} color={lightColor} />
-      <directionalLight
-        position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
-        intensity={lightIntensity}
-        color={lightColor}
-        castShadow
-        shadow-mapSize-width={config.shadowMapSize}
-        shadow-mapSize-height={config.shadowMapSize}
-        shadow-camera-left={-baseSize}
-        shadow-camera-right={baseSize}
-        shadow-camera-top={baseSize}
-        shadow-camera-bottom={-baseSize}
-        shadow-camera-near={1}
-        shadow-camera-far={baseSize * 4}
-        shadow-bias={-0.0005}
-      />
+      {renderMode ? (
+        // PT mode gets a rectangular area light instead of the
+        // infinitesimal directional: finite-size emitter means soft
+        // shadow penumbrae and plausible rect-kicker highlights on
+        // plastic, which is the whole point of the PT view. Size +
+        // intensity are calibrated so overall brightness roughly
+        // matches the directional at the same lightIntensity slider
+        // position; lookAt on mount aims the face at the origin
+        // (RectAreaLight has no .target like DirectionalLight, so
+        // orientation is baked via the onUpdate callback).
+        <ShapedAreaLight
+          position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
+          width={baseSize * 0.7}
+          height={baseSize * 0.7}
+          intensity={lightIntensity * 10}
+          color={lightColor}
+          onUpdate={(self: { lookAt: (x: number, y: number, z: number) => void }) =>
+            self.lookAt(0, 0, 0)
+          }
+        />
+      ) : (
+        <directionalLight
+          position={[baseSize, baseSize * 1.5, baseSize * 0.6]}
+          intensity={lightIntensity}
+          color={lightColor}
+          castShadow
+          shadow-mapSize-width={config.shadowMapSize}
+          shadow-mapSize-height={config.shadowMapSize}
+          shadow-camera-left={-baseSize}
+          shadow-camera-right={baseSize}
+          shadow-camera-top={baseSize}
+          shadow-camera-bottom={-baseSize}
+          shadow-camera-near={1}
+          shadow-camera-far={baseSize * 4}
+          shadow-bias={-0.0005}
+        />
+      )}
+      {renderMode && (
+        // Emissive "contact-shadow floor" parked just under the
+        // baseplate. three-gpu-pathtracer treats emissive surfaces as
+        // area lights, so this gives downward-facing rays inside
+        // transparent bricks a lit reference instead of returning raw
+        // black when they TIR or escape the scene below. Kept low-
+        // intensity so it doesn't flood the scene with uplight —
+        // large-and-dim beats small-and-bright for this use case.
+        <mesh
+          position={[0, -PLATE_HEIGHT_MM - 2, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          frustumCulled={false}
+        >
+          <planeGeometry args={[baseSize * 10, baseSize * 10]} />
+          <meshStandardMaterial
+            color="#0a0a0a"
+            emissive={lightColor}
+            emissiveIntensity={0.15}
+            roughness={1}
+            metalness={0}
+          />
+        </mesh>
+      )}
       {baseplateVisible && <Baseplate />}
       <InstancedBricks />
     </>
@@ -209,7 +281,10 @@ export function Scene() {
           0.5;
       }}
       gl={{
-        toneMapping: ACESFilmicToneMapping,
+        // Initial tone-map op — ToneMappingBridge inside the Canvas
+        // tracks later changes and invalidates existing material
+        // programs so the chunk swap actually takes effect.
+        toneMapping: TONE_MAPPING_ENUM[toneMapping] ?? ACESFilmicToneMapping,
         toneMappingExposure: 1.0,
         // postprocessing's internal render targets don't use stencil, and
         // MSAA resolves fight N8AO's normal-pass blit. Mismatched attachments
@@ -252,6 +327,7 @@ export function Scene() {
         </>
       )}
 
+      <ToneMappingBridge />
       <CaptureBridge />
       <CameraViewBridge />
       <CameraWooshDriver />
@@ -342,6 +418,40 @@ function PTRenderer({
       <PathtracerDenoise />
     </Pathtracer>
   );
+}
+
+/**
+ * Applies store-driven tone-mapping changes to the live renderer.
+ *
+ * three.js compiles the tone-map chunk into every material's program
+ * at first-use; later changes to `renderer.toneMapping` don't retro-
+ * actively re-link cached programs. We force re-link by traversing
+ * the scene and flipping `needsUpdate` on each material. The cost is
+ * real but rare (only on picker change), and avoids a Canvas remount
+ * that would reset the camera pose and the pathtrace cache.
+ *
+ * Caveat: the pathtracer's internal display material lives outside
+ * our scene graph, so an in-PT-mode switch won't re-encode until the
+ * user exits and re-enters render mode. The initial `gl` prop on
+ * <Canvas> seeds the correct tone-map for the session's first PT
+ * entry, so most users never see the stale case.
+ */
+function ToneMappingBridge() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const toneMapping = useEditorStore((s) => s.toneMapping);
+
+  useEffect(() => {
+    gl.toneMapping = TONE_MAPPING_ENUM[toneMapping] ?? ACESFilmicToneMapping;
+    scene.traverse((obj) => {
+      const m = (obj as { material?: Material | Material[] }).material;
+      if (!m) return;
+      const mats = Array.isArray(m) ? m : [m];
+      for (const mat of mats) mat.needsUpdate = true;
+    });
+  }, [gl, scene, toneMapping]);
+
+  return null;
 }
 
 /**

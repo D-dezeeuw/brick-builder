@@ -63,7 +63,7 @@ const INITIAL_HALF = 16; // initial baseplate is ±16 studs = 32x32
 
 export type { BaseplateBounds };
 
-type EditorState = {
+export type EditorState = {
   /** Human-readable creation title — shown editable in the top bar. */
   title: string;
 
@@ -95,6 +95,16 @@ type EditorState = {
   lightWarmth: number;
   /** IBL environment-map intensity (0..2). 0 disables reflections from the HDRI. */
   envIntensity: number;
+  /** HDRI rotation around Y (radians, 0..2π). Rotates IBL contribution + visible background together. */
+  envRotation: number;
+  /** Render the HDRI as a visible background rather than IBL-only. */
+  envBackgroundVisible: boolean;
+  /** 0..1 gaussian blurriness applied when envBackgroundVisible. */
+  envBackgroundBlur: number;
+  /** 0..2 brightness multiplier for the visible background (separate from IBL intensity). */
+  envBackgroundIntensity: number;
+  /** Output tone-mapping operator. ACES is filmic, AgX is Blender 4's default, Neutral is khronos-curve, Linear is no curve. */
+  toneMapping: 'aces' | 'agx' | 'neutral' | 'linear';
   /**
    * Single "how glossy are the bricks" knob (0..1) — drives roughness,
    * clearcoat, and clearcoatRoughness together for both the realtime
@@ -293,6 +303,11 @@ type EditorState = {
   setLightIntensity: (n: number) => void;
   setLightWarmth: (n: number) => void;
   setEnvIntensity: (n: number) => void;
+  setEnvRotation: (n: number) => void;
+  setEnvBackgroundVisible: (b: boolean) => void;
+  setEnvBackgroundBlur: (n: number) => void;
+  setEnvBackgroundIntensity: (n: number) => void;
+  setToneMapping: (t: EditorState['toneMapping']) => void;
   setBrickReflectivity: (n: number) => void;
   setAoEnabled: (b: boolean) => void;
   setBloomEnabled: (b: boolean) => void;
@@ -406,6 +421,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // Studio HDRI from pmndrs/assets is quite bright; 0.3 gives a plausible
   // plastic highlight without washing out direct shading.
   envIntensity: 0.3,
+  envRotation: 0,
+  envBackgroundVisible: false,
+  envBackgroundBlur: 0.3,
+  envBackgroundIntensity: 1,
+  toneMapping: 'aces',
   // Mid-gloss ABS by default — satin clearcoat, not quite wet.
   brickReflectivity: 0.6,
   // Effect defaults seeded from the High preset to match initial `quality: 'high'`.
@@ -576,6 +596,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setLightIntensity: (n) => set({ lightIntensity: Math.max(0, Math.min(2, n)) }),
   setLightWarmth: (n) => set({ lightWarmth: Math.max(-1, Math.min(1, n)) }),
   setEnvIntensity: (n) => set({ envIntensity: Math.max(0, Math.min(2, n)) }),
+  setEnvRotation: (n) => {
+    // Normalise to [0, 2π) so the slider behaves predictably as users
+    // scrub past the ends. Small fmod, no allocation.
+    const tau = Math.PI * 2;
+    const r = ((n % tau) + tau) % tau;
+    set({ envRotation: r });
+  },
+  setEnvBackgroundVisible: (b) => set({ envBackgroundVisible: b }),
+  setEnvBackgroundBlur: (n) => set({ envBackgroundBlur: Math.max(0, Math.min(1, n)) }),
+  setEnvBackgroundIntensity: (n) => set({ envBackgroundIntensity: Math.max(0, Math.min(2, n)) }),
+  setToneMapping: (t) => set({ toneMapping: t }),
   setBrickReflectivity: (n) => set({ brickReflectivity: Math.max(0, Math.min(1, n)) }),
   setAoEnabled: (b) => set({ aoEnabled: b }),
   setBloomEnabled: (b) => set({ bloomEnabled: b }),
