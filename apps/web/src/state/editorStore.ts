@@ -14,6 +14,7 @@ import {
   type Rotation,
   type SavedView,
 } from '@brick/shared';
+import type { BaseplateColor } from './constants';
 import { EFFECT_DEFAULTS } from './quality';
 import { setPlacementSoundEnabled } from './placementFeedback';
 import { useToastStore } from './toastStore';
@@ -197,6 +198,8 @@ export type EditorState = {
    * rebuilt and cached per-variant so toggling is cheap.
    */
   studsVisible: boolean;
+  /** Baseplate palette — concrete grey / ocean / grass / mud. */
+  baseplateColor: BaseplateColor;
   /** When true, placing a brick plays the synthesized click. */
   placementSoundEnabled: boolean;
   /** When true, rotating the camera plays the filtered-noise whoosh. */
@@ -326,6 +329,7 @@ export type EditorState = {
   setDenoiseStrength: (n: number) => void;
   setBaseplateVisible: (b: boolean) => void;
   setStudsVisible: (b: boolean) => void;
+  setBaseplateColor: (c: BaseplateColor) => void;
   setPlacementSoundEnabled: (b: boolean) => void;
   setWooshSoundEnabled: (b: boolean) => void;
   setAudioMuted: (b: boolean) => void;
@@ -446,6 +450,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   denoiseStrength: 1.0,
   baseplateVisible: true,
   studsVisible: true,
+  baseplateColor: 'grey',
   placementSoundEnabled: true,
   wooshSoundEnabled: true,
   audioMuted: false,
@@ -634,6 +639,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setDenoiseStrength: (n) => set({ denoiseStrength: Math.max(0.2, Math.min(3.0, n)) }),
   setBaseplateVisible: (b) => set({ baseplateVisible: b }),
   setStudsVisible: (b) => set({ studsVisible: b }),
+  setBaseplateColor: (c) => set({ baseplateColor: c }),
   setPlacementSoundEnabled: (b) => {
     set({ placementSoundEnabled: b });
     setPlacementSoundEnabled(b);

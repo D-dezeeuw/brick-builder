@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { InstancedMesh, Matrix4 } from 'three';
 import { PLATE_HEIGHT_MM, STUD_DIAMETER_MM, STUD_HEIGHT_MM, STUD_PITCH_MM } from '@brick/shared';
-import { BASEPLATE_COLOR } from '../state/constants';
+import { BASEPLATE_COLOR_HEX } from '../state/constants';
 import { useEditorStore } from '../state/editorStore';
 
 function StudField({
@@ -9,11 +9,13 @@ function StudField({
   maxGx,
   minGz,
   maxGz,
+  color,
 }: {
   minGx: number;
   maxGx: number;
   minGz: number;
   maxGz: number;
+  color: string;
 }) {
   const width = maxGx - minGx;
   const depth = maxGz - minGz;
@@ -58,13 +60,16 @@ function StudField({
       receiveShadow
     >
       <cylinderGeometry args={[STUD_DIAMETER_MM / 2, STUD_DIAMETER_MM / 2, STUD_HEIGHT_MM, 16]} />
-      <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.38} metalness={0.08} />
+      <meshStandardMaterial color={color} roughness={0.38} metalness={0.08} />
     </instancedMesh>
   );
 }
 
 export function Baseplate() {
   const bounds = useEditorStore((s) => s.baseplateBounds);
+  const studsVisible = useEditorStore((s) => s.studsVisible);
+  const colorKey = useEditorStore((s) => s.baseplateColor);
+  const color = BASEPLATE_COLOR_HEX[colorKey];
   const { minGx, maxGx, minGz, maxGz } = bounds;
 
   const slab = useMemo(() => {
@@ -83,9 +88,11 @@ export function Baseplate() {
         userData={{ kind: 'baseplate' }}
       >
         <boxGeometry args={[slab.width, PLATE_HEIGHT_MM, slab.depth]} />
-        <meshStandardMaterial color={BASEPLATE_COLOR} roughness={0.38} metalness={0.08} />
+        <meshStandardMaterial color={color} roughness={0.38} metalness={0.08} />
       </mesh>
-      <StudField minGx={minGx} maxGx={maxGx} minGz={minGz} maxGz={maxGz} />
+      {studsVisible && (
+        <StudField minGx={minGx} maxGx={maxGx} minGz={minGz} maxGz={maxGz} color={color} />
+      )}
     </group>
   );
 }

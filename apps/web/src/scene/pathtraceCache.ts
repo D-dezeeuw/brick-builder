@@ -160,6 +160,7 @@ type Snapshot = {
   bricks: unknown;
   baseplateVisible: boolean;
   studsVisible: boolean;
+  baseplateColor: string;
   brickReflectivity: number;
   lightIntensity: number;
   lightWarmth: number;
@@ -181,6 +182,7 @@ function snap(state: ReturnType<typeof useEditorStore.getState>): Snapshot {
     bricks: state.bricks,
     baseplateVisible: state.baseplateVisible,
     studsVisible: state.studsVisible,
+    baseplateColor: state.baseplateColor,
     brickReflectivity: state.brickReflectivity,
     lightIntensity: state.lightIntensity,
     lightWarmth: state.lightWarmth,
