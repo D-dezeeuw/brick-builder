@@ -1,7 +1,17 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { ACESFilmicToneMapping, Color, MOUSE, PCFSoftShadowMap, Quaternion, TOUCH } from 'three';
+import {
+  ACESFilmicToneMapping,
+  Color,
+  MOUSE,
+  PCFSoftShadowMap,
+  type PerspectiveCamera,
+  Quaternion,
+  TOUCH,
+  type WebGLRenderTarget,
+} from 'three';
+import { computeCacheKey, getCached } from './pathtraceCache';
 import { STUD_PITCH_MM } from '@brick/shared';
 import { Baseplate } from './Baseplate';
 import { CameraViewBridge } from './CameraViewBridge';
@@ -16,6 +26,17 @@ import { useIdlePause } from '../state/useIdlePause';
 import { setWooshSpeed } from '../state/wooshSound';
 import { QUALITY_CONFIGS } from '../state/quality';
 import { warmthToRgb } from './lightColor';
+import { IS_MOBILE } from './ptPlatform';
+
+// Tile count controls how the pathtracer subdivides each accumulation
+// pass. Smaller tiles (higher count) = shorter per-frame GPU work, at
+// the cost of slightly more per-tile sync overhead. The library's
+// [3, 3] default is fine on desktop at full res but noticeably sluggish
+// on mobile during orbit; bumping mobile to [5, 5] keeps the preview
+// interactive without materially hurting throughput. Desktop [4, 4]
+// gives a small interactivity win over the default with zero visible
+// downside.
+const PT_TILES: [number, number] = IS_MOBILE ? [5, 5] : [4, 4];
 
 // Heavy optional modules split out of the main bundle. Users on Low/Med with
 // no post-fx and render mode off never pay the cost.
@@ -41,6 +62,12 @@ const PathtracerCamera = lazy(() =>
 const PathtracerDenoise = lazy(() =>
   import('./PathtracerDenoise').then((m) => ({ default: m.PathtracerDenoise })),
 );
+const PathtracerConvergence = lazy(() =>
+  import('./PathtracerConvergence').then((m) => ({ default: m.PathtracerConvergence })),
+);
+const CachedPathtraceView = lazy(() =>
+  import('./CachedPathtraceView').then((m) => ({ default: m.CachedPathtraceView })),
+);
 
 const INITIAL_BASEPLATE_STUDS = 32;
 
@@ -55,8 +82,17 @@ export function Scene() {
   const smaaEnabled = useEditorStore((s) => s.smaaEnabled);
   const renderMode = useEditorStore((s) => s.renderMode);
   const pathtracerMaxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
+  const pathtracerEarlyStopAt = useEditorStore((s) => s.pathtracerEarlyStopAt);
   const pathtracerBounces = useEditorStore((s) => s.pathtracerBounces);
   const pathtracerResolutionScale = useEditorStore((s) => s.pathtracerResolutionScale);
+  // Convergence monitor lowers the effective cap once the image stops
+  // changing — saves users from over-sampling a scene that already
+  // looks final. The monitor nulls this back out when the tracer
+  // resets, so the cap re-opens for the next pose.
+  const effectiveMaxSamples =
+    pathtracerEarlyStopAt !== null
+      ? Math.min(pathtracerMaxSamples, pathtracerEarlyStopAt)
+      : pathtracerMaxSamples;
   // When the user has been idle long enough, cut the rAF loop entirely
   // so GPU/CPU go to ~zero until the next input or store change. The
   // last rendered frame stays visible on the canvas — no visible
@@ -193,30 +229,12 @@ export function Scene() {
 
       {renderMode ? (
         <Suspense fallback={null}>
-          {/* `samples` is the max accumulated — once reached, the tracer
-              stops and the GPU goes idle. All tuning knobs are store-
-              driven; `minSamples` is clamped so low maxes don't wedge
-              the tracer in a pre-display state. `resolutionFactor` <1
-              downsamples the PT buffer (big perf win). `renderDelay`
-              stops thrashing while the user is actively orbiting.
-              `fadeDuration` softens the raster→PT handoff. */}
-          <Pathtracer
-            minSamples={Math.min(4, pathtracerMaxSamples)}
-            samples={pathtracerMaxSamples}
+          <PTRenderer
+            effectiveMaxSamples={effectiveMaxSamples}
             bounces={pathtracerBounces}
             resolutionFactor={pathtracerResolutionScale}
-            renderDelay={250}
-            fadeDuration={300}
-            enabled
-          >
-            {sceneContent}
-            <PathtracerBVHWorker />
-            <PathtracerCamera />
-            <PathtracingExpansion />
-            <PathtracerSampleReporter />
-            <PathtracerBusBridge />
-            <PathtracerDenoise />
-          </Pathtracer>
+            sceneContent={sceneContent}
+          />
         </Suspense>
       ) : (
         <>
@@ -257,6 +275,72 @@ export function Scene() {
         target={[0, 0, 0]}
       />
     </Canvas>
+  );
+}
+
+/**
+ * Chooses between the live <Pathtracer> and a cached converged-output
+ * quad each frame. Runs inside <Canvas> so useFrame + useThree see
+ * the real camera (not the raw Scene.tsx render-time camera, which
+ * doesn't exist yet). State is initialised lazily from the current
+ * camera pose so that a cache hit on PT-mode entry skips mounting
+ * <Pathtracer> entirely — no BVH build, no flash, instant display.
+ *
+ * The cached buffer is module-owned (see pathtraceCache.ts). We pass
+ * around a render-target reference, not a texture, because the cache
+ * owns the RT's lifecycle and we just read from it.
+ */
+type PTRendererProps = {
+  effectiveMaxSamples: number;
+  bounces: number;
+  resolutionFactor: number;
+  sceneContent: React.ReactNode;
+};
+
+function PTRenderer({
+  effectiveMaxSamples,
+  bounces,
+  resolutionFactor,
+  sceneContent,
+}: PTRendererProps) {
+  const camera = useThree((s) => s.camera);
+  const [cachedTarget, setCachedTarget] = useState<WebGLRenderTarget | null>(() =>
+    getCached(computeCacheKey(camera as PerspectiveCamera, resolutionFactor)),
+  );
+  const lastKey = useRef<string>('');
+
+  useFrame(() => {
+    const key = computeCacheKey(camera as PerspectiveCamera, resolutionFactor);
+    if (key === lastKey.current) return;
+    lastKey.current = key;
+    const hit = getCached(key);
+    setCachedTarget((prev) => (prev === hit ? prev : hit));
+  });
+
+  if (cachedTarget) {
+    return <CachedPathtraceView target={cachedTarget} />;
+  }
+  return (
+    <Pathtracer
+      minSamples={Math.min(4, effectiveMaxSamples)}
+      samples={effectiveMaxSamples}
+      bounces={bounces}
+      tiles={PT_TILES}
+      resolutionFactor={resolutionFactor}
+      filteredGlossyFactor={0.5}
+      renderDelay={250}
+      fadeDuration={300}
+      enabled
+    >
+      {sceneContent}
+      <PathtracerBVHWorker />
+      <PathtracerCamera />
+      <PathtracingExpansion />
+      <PathtracerSampleReporter />
+      <PathtracerConvergence />
+      <PathtracerBusBridge />
+      <PathtracerDenoise />
+    </Pathtracer>
   );
 }
 

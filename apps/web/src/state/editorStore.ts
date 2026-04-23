@@ -112,6 +112,15 @@ type EditorState = {
   /** Live sample count reported by the path tracer; 0 when idle. */
   pathtracerSamples: number;
   /**
+   * Sample count at which the convergence monitor detected that the
+   * image has stopped changing. `null` until convergence is reached.
+   * The Scene passes `min(maxSamples, earlyStopAt)` to <Pathtracer>,
+   * freezing the tracer at its converged output. Cleared (→ null)
+   * whenever the PT resets its sample counter (camera move, scene
+   * change, prop change).
+   */
+  pathtracerEarlyStopAt: number | null;
+  /**
    * Max accumulation samples the pathtracer targets before it stops.
    * Higher = cleaner but slower to converge. User-adjustable via a
    * slider next to the render button; range 1–512.
@@ -290,6 +299,7 @@ type EditorState = {
   setSmaaEnabled: (b: boolean) => void;
   setRenderMode: (b: boolean) => void;
   setPathtracerSamples: (n: number) => void;
+  setPathtracerEarlyStopAt: (n: number | null) => void;
   setPathtracerMaxSamples: (n: number) => void;
   setPathtracerBounces: (n: number) => void;
   setPathtracerResolutionScale: (n: number) => void;
@@ -404,6 +414,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   smaaEnabled: EFFECT_DEFAULTS.high.smaa,
   renderMode: false,
   pathtracerSamples: 0,
+  pathtracerEarlyStopAt: null,
   pathtracerMaxSamples: 64,
   pathtracerBounces: 5,
   pathtracerResolutionScale: 0.75,
@@ -569,8 +580,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setAoEnabled: (b) => set({ aoEnabled: b }),
   setBloomEnabled: (b) => set({ bloomEnabled: b }),
   setSmaaEnabled: (b) => set({ smaaEnabled: b }),
-  setRenderMode: (b) => set({ renderMode: b, pathtracerSamples: 0 }),
+  setRenderMode: (b) =>
+    set({ renderMode: b, pathtracerSamples: 0, pathtracerEarlyStopAt: null }),
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
+  setPathtracerEarlyStopAt: (n) => set({ pathtracerEarlyStopAt: n }),
   setPathtracerMaxSamples: (n) =>
     set({ pathtracerMaxSamples: Math.max(1, Math.min(512, Math.round(n))) }),
   setPathtracerBounces: (n) =>

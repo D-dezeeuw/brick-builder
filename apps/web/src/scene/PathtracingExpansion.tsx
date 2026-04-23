@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import {
   Box3,
   Color,
@@ -19,18 +19,7 @@ import {
 import { usePathtracer } from '@react-three/gpu-pathtracer';
 import { reflectivityToProps } from '../bricks/material';
 import { useEditorStore } from '../state/editorStore';
-
-/**
- * Coarse mobile heuristic. three-gpu-pathtracer 0.0.23 conditionally
- * compiles clearcoat / sheen branches into its mega-shader based on
- * which materials it sees; iOS GPUs and some Mali chips silently fall
- * back to zero-output fragments when that shader exceeds their
- * instruction budget, which renders as pitch-black bricks. The UA
- * sniff is pragmatic — a proper WebGL shader-compile probe would be
- * nicer but a lot more code for a hobby feature.
- */
-const IS_MOBILE =
-  typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+import { IS_MOBILE } from './ptPlatform';
 
 // Re-expansion triggers when the camera has translated by more than
 // this distance OR rotated by more than this angle since the last
@@ -109,6 +98,25 @@ export function PathtracingExpansion() {
   // moved far enough past the cached frustum.
   const [expansionKey, setExpansionKey] = useState(0);
   const lastExpansionPose = useRef<{ position: Vector3; quaternion: Quaternion } | null>(null);
+
+  // Scene.environment is populated asynchronously by drei's
+  // <Environment> (Suspense-wrapped HDRI load). Our initial expansion
+  // typically runs BEFORE the HDRI resolves — capturing envMap=null on
+  // every cloned material. three-gpu-pathtracer reads material.envMap
+  // directly (no fallback to scene.environment), so without this watch
+  // bricks render pitch-black until something else triggers a
+  // re-expansion (camera move past the frustum threshold). Poll once
+  // per frame (a single reference compare) and bump the expansion key
+  // when the environment texture swaps in — the effect below then
+  // re-clones with a valid envMap and the library rebuilds the BVH
+  // via setSceneAsync on the worker.
+  const lastEnvRef = useRef<Texture | null>(scene.environment);
+  useFrame(() => {
+    if (scene.environment !== lastEnvRef.current) {
+      lastEnvRef.current = scene.environment;
+      setExpansionKey((k) => k + 1);
+    }
+  });
 
   useLayoutEffect(() => {
     const clones: Mesh[] = [];
