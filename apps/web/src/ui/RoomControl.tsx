@@ -46,15 +46,18 @@ export function RoomControl() {
 
   if (!roomId) {
     return (
-      <button
-        type="button"
-        className="icon-btn icon-btn--text"
-        onClick={onStart}
-        disabled={status === 'connecting'}
-        title="Create a room and share the link with collaborators"
-      >
-        {status === 'connecting' ? 'Starting…' : 'Start room'}
-      </button>
+      <>
+        <button
+          type="button"
+          className="icon-btn icon-btn--text"
+          onClick={onStart}
+          disabled={status === 'connecting'}
+          title="Create a room and share the link with collaborators"
+        >
+          {status === 'connecting' ? 'Starting…' : 'Start room'}
+        </button>
+        <RoomJoinButton disabled={status === 'connecting'} />
+      </>
     );
   }
 
@@ -93,6 +96,115 @@ export function RoomControl() {
         Leave
       </button>
     </>
+  );
+}
+
+// Room ids come from the newRoomId() alphabet in multiplayer/supabase.ts
+// (lowercase alnum minus look-alikes: l, o, 0, 1) and are always 8
+// chars. We accept either a bare id or a full share URL containing
+// `?r=<id>` — users paste whichever is on their clipboard.
+const ROOM_ID_RE = /^[abcdefghjkmnpqrstuvwxyz23456789]{8}$/;
+
+function extractRoomId(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    const fromQuery = url.searchParams.get('r');
+    if (fromQuery && ROOM_ID_RE.test(fromQuery)) return fromQuery;
+  } catch {
+    // Not a URL — fall through to bare-id check.
+  }
+  return ROOM_ID_RE.test(trimmed) ? trimmed : null;
+}
+
+function RoomJoinButton({ disabled }: { disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const showToast = useToastStore((s) => s.show);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!panelRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = extractRoomId(value);
+    if (!id) {
+      showToast('Enter a room code or paste a share link', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await connectToRoom(id);
+      if (ok) {
+        showToast('Joined room', 'success');
+        setOpen(false);
+        setValue('');
+      } else {
+        showToast('Could not join — check the code and try again', 'error');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="room-password" ref={panelRef}>
+      <button
+        type="button"
+        className="icon-btn icon-btn--text"
+        onClick={() => setOpen(!open)}
+        disabled={disabled}
+        title="Join an existing room by code or link"
+        aria-expanded={open}
+      >
+        Join room
+      </button>
+      {open && (
+        <form className="room-password__panel" onSubmit={onSubmit}>
+          <input
+            type="text"
+            className="password-input"
+            placeholder="Room code or share link"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            maxLength={512}
+            disabled={busy}
+            autoFocus
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <p className="room-password__hint">
+            Paste the 8-character code or the full share URL you were sent.
+          </p>
+          <div className="room-password__actions">
+            <button
+              type="submit"
+              className="fallback__btn fallback__btn--primary"
+              disabled={busy || value.trim().length === 0}
+            >
+              {busy ? 'Joining…' : 'Join'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 

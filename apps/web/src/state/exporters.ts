@@ -25,6 +25,47 @@ function triggerDownload(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function isMobile(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
+}
+
+/**
+ * On mobile, the default "download" behaviour parks the PNG in the
+ * Files app — which most users don't know how to find. The Web Share
+ * API with files opens the native iOS / Android share sheet, from
+ * which users can tap "Save Image" (iOS) or "Save to Photos" /
+ * "Download" (Android) and land the shot in their photo roll directly.
+ *
+ * Desktop keeps the direct-download behaviour since its download
+ * folder is discoverable and a share sheet is a worse UX for power
+ * users who just want the file. Browsers without share-with-files
+ * support (Firefox on any platform, older WebKit) fall through to
+ * download automatically.
+ *
+ * AbortError from `navigator.share` means the user dismissed the
+ * sheet — we treat that as success (they made a choice), not a
+ * silent fallback to download.
+ */
+async function shareOrDownload(blob: Blob, filename: string): Promise<void> {
+  if (isMobile() && typeof navigator.canShare === 'function') {
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        // Anything else (NotAllowedError, unknown failure): fall
+        // through to direct download so the user still gets the file.
+      }
+    }
+  }
+  triggerDownload(blob, filename);
+}
+
 export function exportCreationAsJson(creation: Creation): void {
   const blob = new Blob([JSON.stringify(creation, null, 2)], {
     type: 'application/json',
@@ -81,6 +122,6 @@ export async function importCreationFromFile(file: File): Promise<boolean> {
 export async function exportCanvasAsPng(titleForFilename: string): Promise<boolean> {
   const blob = await requestPngCapture();
   if (!blob) return false;
-  triggerDownload(blob, `${slugify(titleForFilename)}.png`);
+  await shareOrDownload(blob, `${slugify(titleForFilename)}.png`);
   return true;
 }
