@@ -28,10 +28,12 @@ export function buildRectGeometry(def: RectDef, showStuds = true): BufferGeometr
   const bodyD = d * STUD_PITCH_MM;
   const bodyH = layers * PLATE_HEIGHT_MM;
 
-  const parts: BufferGeometry[] = [buildBody(bodyW, bodyD, bodyH, w, d, bottom)];
+  const parts: BufferGeometry[] = [buildBody(bodyW, bodyD, bodyH, w, d, bottom, showStuds)];
   // showStuds=false collapses every stud-bearing top variant to a smooth
   // one so the brick reads like a tile — used by the "hide studs" scene
-  // toggle for clean screenshots.
+  // toggle for clean screenshots. The body respects the same flag so
+  // under-sides go solid (no anti-stud tubes) — hiding studs should
+  // produce a fully smooth block, not just a smooth top.
   const effectiveTop = showStuds ? top : 'smooth';
   parts.push(...buildTop(bodyW, bodyD, bodyH, w, d, effectiveTop));
 
@@ -48,8 +50,9 @@ function buildBody(
   w: number,
   d: number,
   bottom: RectDef['bottom'],
+  showStuds: boolean,
 ): BufferGeometry {
-  const canCarve = bottom === 'antistuds' && bodyH > CEILING_THICKNESS_MM + 0.2;
+  const canCarve = showStuds && bottom === 'antistuds' && bodyH > CEILING_THICKNESS_MM + 0.2;
   if (!canCarve) {
     const box = new BoxGeometry(bodyW, bodyH, bodyD);
     box.translate(bodyW / 2, bodyH / 2, bodyD / 2);

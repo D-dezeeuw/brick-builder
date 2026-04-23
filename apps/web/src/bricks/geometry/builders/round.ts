@@ -21,7 +21,9 @@ export function buildRoundGeometry(def: RoundDef, showStuds = true): BufferGeome
   const cx = bodyRadius;
   const cz = bodyRadius;
 
-  const parts: BufferGeometry[] = [buildRoundBody(bodyRadius, bodyH, diameter, cx, cz)];
+  const parts: BufferGeometry[] = [
+    buildRoundBody(bodyRadius, bodyH, diameter, cx, cz, showStuds),
+  ];
   const effectiveTop = showStuds ? top : 'smooth';
   parts.push(...buildRoundTop(cx, cz, bodyH, diameter, effectiveTop));
 
@@ -36,9 +38,13 @@ function buildRoundBody(
   diameter: 1 | 2,
   cx: number,
   cz: number,
+  showStuds: boolean,
 ): BufferGeometry {
   const carvedDepth = bodyH - CEILING_THICKNESS_MM;
-  if (carvedDepth <= 0.2) {
+  // showStuds=false takes the same solid-cylinder path used when the
+  // body is too thin to carve — the "hide studs" toggle should hide
+  // the underside anti-stud hollow as well as the top studs.
+  if (!showStuds || carvedDepth <= 0.2) {
     const solid = new CylinderGeometry(bodyRadius, bodyRadius, bodyH, 32);
     solid.translate(cx, bodyH / 2, cz);
     return solid;
