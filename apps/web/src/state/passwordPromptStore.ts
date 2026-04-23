@@ -42,7 +42,13 @@ export const usePasswordPrompt = create<PasswordPromptState>((set, get) => ({
     set({ open: false, roomId: null, message: null, error: null, pending: null });
     p?.(null);
   },
-  setError: (message) => set({ error: message, pending: null }),
+  // Only touches the error string. Do NOT clear `pending` here —
+  // the modal's onChange calls this on every keystroke to dismiss
+  // the error after a wrong attempt, and killing `pending` would
+  // drop the resolver for the fresh requestPassword() call that
+  // promptUntilJoined has already queued up, leaving the join loop
+  // awaiting forever (roomStatus stuck on 'connecting').
+  setError: (message) => set({ error: message }),
 }));
 
 export function requestPassword(roomId: string, message?: string): Promise<string | null> {
