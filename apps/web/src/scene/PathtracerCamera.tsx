@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
-import { PhysicalCamera } from '@react-three/gpu-pathtracer';
+import { PhysicalCamera, usePathtracer } from '@react-three/gpu-pathtracer';
 import { useEditorStore } from '../state/editorStore';
 
 /**
@@ -46,9 +46,20 @@ type ControlsLike = {
 // from a perspective camera.
 const DOF_DISABLED_FSTOP = 100;
 
+// three-gpu-pathtracer's DoF shader scales the aperture sample by
+// `bokehSize * 0.5 * 1e-3` — i.e. it assumes scene units are metres.
+// Our scene is millimetres (1 stud = 8mm, camera distance ≈ 280mm),
+// which makes the aperture 1000× smaller than the library expects
+// against our distances — at f/1.4 the aperture disc works out to
+// ~0.015mm, effectively a pinhole. Dividing the user-facing fStop
+// by this scale puts the aperture back into the correct proportion
+// to the scene without having to fork the library.
+const SCENE_UNITS_PER_METER = 1000;
+
 export function PathtracerCamera() {
   const rasterCamera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as ControlsLike | null;
+  const { pathtracer } = usePathtracer();
   const dofEnabled = useEditorStore((s) => s.pathtracerDofEnabled);
   const fStop = useEditorStore((s) => s.pathtracerFStop);
   const apertureBlades = useEditorStore((s) => s.pathtracerApertureBlades);
@@ -105,7 +116,19 @@ export function PathtracerCamera() {
     phys.focusDistance = Math.max(1, phys.position.distanceTo(controls.target));
   });
 
-  const effectiveFStop = dofEnabled ? fStop : DOF_DISABLED_FSTOP;
+  const effectiveFStop = dofEnabled ? fStop / SCENE_UNITS_PER_METER : DOF_DISABLED_FSTOP;
+
+  // PhysicalCamera prop changes fire the library's updateCamera()
+  // via its own useEffect, which normally calls reset(). But our
+  // PathtracerStabilityPatch intercepts updateCamera() and skips
+  // reset when the camera POSE is unchanged — which is exactly what
+  // happens when the user drags the f-stop / aperture-shape slider
+  // without moving the scene. Without an explicit reset here, the
+  // accumulated samples keep rendering with the old DoF uniforms and
+  // the slider looks dead. Reset on mount is redundant but harmless.
+  useEffect(() => {
+    (pathtracer as unknown as { reset: () => void }).reset();
+  }, [pathtracer, dofEnabled, fStop, apertureBlades]);
 
   return (
     <PhysicalCamera
