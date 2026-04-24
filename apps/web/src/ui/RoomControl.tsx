@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
-import { connectToRoom, disconnectRoom } from '../multiplayer/roomSync';
-import { rpcRemoveRoomPassword, rpcSetRoomPassword } from '../multiplayer/roomPassword';
-import { roomShareUrl } from '../multiplayer/useRoomRouter';
-import { hasSupabase, newRoomId } from '../multiplayer/supabase';
+
+// Config-only test — this stays a compile-time boolean and doesn't
+// force the supabase.ts module (which instantiates the heavy client)
+// into the main bundle. All live multiplayer modules are imported
+// lazily inside button handlers.
+const SUPABASE_CONFIGURED = Boolean(
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+);
 
 export function RoomControl() {
   const roomId = useEditorStore((s) => s.roomId);
@@ -13,9 +17,17 @@ export function RoomControl() {
   const showToast = useToastStore((s) => s.show);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
-  if (!hasSupabase) return null;
+  if (!SUPABASE_CONFIGURED) return null;
 
   const onStart = async () => {
+    // Mount the runtime first so the router hook is ready to drive
+    // the URL once the connect succeeds.
+    useEditorStore.getState().setMultiplayerActive(true);
+    const [{ connectToRoom }, { newRoomId }, { roomShareUrl }] = await Promise.all([
+      import('../multiplayer/roomSync'),
+      import('../multiplayer/supabase'),
+      import('../multiplayer/useRoomRouter'),
+    ]);
     const id = newRoomId();
     const ok = await connectToRoom(id);
     if (ok) {
@@ -30,12 +42,14 @@ export function RoomControl() {
   };
 
   const onLeave = async () => {
+    const { disconnectRoom } = await import('../multiplayer/roomSync');
     await disconnectRoom();
     showToast('Left room', 'info');
   };
 
   const onCopy = async () => {
     if (!roomId) return;
+    const { roomShareUrl } = await import('../multiplayer/useRoomRouter');
     try {
       await navigator.clipboard.writeText(roomShareUrl(roomId));
       showToast('Room link copied', 'success');
@@ -150,6 +164,8 @@ function RoomJoinButton({ disabled }: { disabled: boolean }) {
     }
     setBusy(true);
     try {
+      useEditorStore.getState().setMultiplayerActive(true);
+      const { connectToRoom } = await import('../multiplayer/roomSync');
       const ok = await connectToRoom(id);
       if (ok) {
         showToast('Joined room', 'success');
@@ -240,6 +256,7 @@ function RoomPasswordButton({ roomId, hasPassword, open, setOpen }: PasswordButt
       showToast('Password cannot be empty', 'error');
       return;
     }
+    const { rpcSetRoomPassword } = await import('../multiplayer/roomPassword');
     const ok = await rpcSetRoomPassword(roomId, newPassword, currentPassword);
     if (!ok) {
       showToast(hasPassword ? 'Wrong current password' : 'Could not set password', 'error');
@@ -253,6 +270,7 @@ function RoomPasswordButton({ roomId, hasPassword, open, setOpen }: PasswordButt
   };
 
   const onRemove = async (currentPassword: string) => {
+    const { rpcRemoveRoomPassword } = await import('../multiplayer/roomPassword');
     const ok = await rpcRemoveRoomPassword(roomId, currentPassword);
     if (!ok) {
       showToast('Wrong current password', 'error');

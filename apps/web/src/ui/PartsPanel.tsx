@@ -11,7 +11,7 @@ import {
   type InventoryRow,
 } from '../state/inventory';
 import { inventoryToBricklinkXml, inventoryToCsv } from '../state/partsExport';
-import { slugify } from '../state/exporters';
+import { slugify } from '../state/slugify';
 
 const GROUP_LABELS: Record<GroupBy, string> = {
   category: 'Category',

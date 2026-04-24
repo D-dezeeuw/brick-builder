@@ -1,8 +1,15 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { AdminApp } from './ui/AdminApp';
 import './styles.css';
+
+// AdminApp is the admin-route entry and drags the entire Supabase
+// client (+ RPC helpers) into whatever bundle it lives in. Static
+// imports would park all of that in the main chunk for every normal
+// user who never passes `?admin=1` — so it's lazy. The admin route
+// eats a single round-trip before first paint; everyone else never
+// downloads the module.
+const AdminApp = lazy(() => import('./ui/AdminApp').then((m) => ({ default: m.AdminApp })));
 
 /** Admin panel lives at `?admin=1` — same origin, but without the
  *  editor mounted. A path-based `/admin` would require the GitHub Pages
@@ -47,5 +54,13 @@ const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');
 
 createRoot(root).render(
-  <StrictMode>{isAdminRoute ? <AdminApp /> : <App />}</StrictMode>,
+  <StrictMode>
+    {isAdminRoute ? (
+      <Suspense fallback={null}>
+        <AdminApp />
+      </Suspense>
+    ) : (
+      <App />
+    )}
+  </StrictMode>,
 );

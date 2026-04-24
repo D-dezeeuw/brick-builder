@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
-import {
-  exportCanvasAsPng,
-  exportCreationAsJson,
-  importCreationFromFile,
-} from '../state/exporters';
 
 export function ExportMenu() {
   const [open, setOpen] = useState(false);
@@ -31,7 +26,8 @@ export function ExportMenu() {
     };
   }, [open]);
 
-  const onJson = () => {
+  const onJson = async () => {
+    const { exportCreationAsJson } = await import('../state/exporters');
     exportCreationAsJson(serializeCreation());
     setOpen(false);
     showToast('JSON exported', 'success');
@@ -39,6 +35,7 @@ export function ExportMenu() {
 
   const onPng = async () => {
     setOpen(false);
+    const { exportCanvasAsPng } = await import('../state/exporters');
     const ok = await exportCanvasAsPng(title);
     if (ok) showToast('Screenshot saved', 'success');
     else showToast('Screenshot failed — canvas not ready', 'error');
@@ -55,6 +52,7 @@ export function ExportMenu() {
     e.target.value = '';
     if (!file) return;
     setOpen(false);
+    const { importCreationFromFile } = await import('../state/exporters');
     await importCreationFromFile(file);
   };
 

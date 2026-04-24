@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Scene } from './scene/Scene';
 import { Sidebar } from './ui/Sidebar';
 import { TopBar } from './ui/TopBar';
@@ -8,45 +8,53 @@ import { Hotbar } from './ui/Hotbar';
 import { ImportDropZone } from './ui/ImportDropZone';
 import { RenderOverlay } from './ui/RenderOverlay';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
-import { ChatPanel } from './ui/ChatPanel';
 import { MobileActionBar } from './ui/MobileActionBar';
 import { ObserveBanner } from './ui/ObserveBanner';
 import { PasswordPromptModal } from './ui/PasswordPromptModal';
 import { SelectionActionBar } from './ui/SelectionActionBar';
-import { SettingsModal } from './ui/SettingsModal';
 import { Toasts } from './ui/Toasts';
 import { useFirstRunHelp, useHelpStore } from './state/helpStore';
 import { useSettingsStore } from './state/settingsStore';
+import { useEditorStore } from './state/editorStore';
 import { hasWebGL2 } from './state/webgl';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
-import { ensureAnonymousSession } from './multiplayer/auth';
-import { useRoomChat } from './multiplayer/useRoomChat';
-import { useRoomRouter } from './multiplayer/useRoomRouter';
-import { useRoomWrites } from './multiplayer/roomWrites';
 import { warmGeometryCache } from './bricks/geometry/builders';
+
+// Deferred — loaded on first interaction with each surface to keep
+// the initial bundle lean.
+const SettingsModal = lazy(() =>
+  import('./ui/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+);
+const ChatPanel = lazy(() =>
+  import('./ui/ChatPanel').then((m) => ({ default: m.ChatPanel })),
+);
+// The whole multiplayer subsystem (Supabase client + realtime + auth)
+// loads only when the user actually intends to collaborate — either
+// the URL carries ?r=<id> or they click Start/Join room.
+const MultiplayerRuntime = lazy(() => import('./multiplayer/MultiplayerRuntime'));
 
 const MOBILE_BREAKPOINT = 768;
 
 export function App() {
   useKeybindings();
   usePersistence();
-  useRoomRouter();
-  useRoomWrites();
-  useRoomChat();
   useFirstRunHelp();
 
   const helpOpen = useHelpStore((s) => s.open);
   const setHelpOpen = useHelpStore((s) => s.setOpen);
   const settingsOpen = useSettingsStore((s) => s.open);
   const setSettingsOpen = useSettingsStore((s) => s.setOpen);
+  const multiplayerActive = useEditorStore((s) => s.multiplayerActive);
 
   useEffect(() => {
     warmGeometryCache();
-    // Kick off the anonymous sign-in early so the first room-join doesn't
-    // have to wait for the auth round-trip. The helper is idempotent and
-    // memoised — subsequent callers reuse the same promise.
-    void ensureAnonymousSession();
+    // Activate the multiplayer runtime on first mount if the URL is
+    // already a room link. Otherwise stay lazy — solo users never
+    // touch the Supabase bundle.
+    if (new URLSearchParams(window.location.search).get('r')) {
+      useEditorStore.getState().setMultiplayerActive(true);
+    }
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(() =>
@@ -86,9 +94,14 @@ export function App() {
       <ObserveBanner />
       <Toasts />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <Suspense fallback={null}>
+        {settingsOpen && (
+          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        )}
+      </Suspense>
       <PasswordPromptModal />
-      <ChatPanel />
+      <Suspense fallback={null}>{multiplayerActive && <ChatPanel />}</Suspense>
+      <Suspense fallback={null}>{multiplayerActive && <MultiplayerRuntime />}</Suspense>
       <aside className="sidebar" aria-hidden={!sidebarOpen}>
         <Sidebar />
       </aside>

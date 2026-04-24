@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { importCreationFromFile } from '../state/exporters';
 
 /**
  * Window-level drag-drop handler. Shows a full-canvas overlay while a JSON
@@ -42,6 +41,7 @@ export function ImportDropZone() {
       setDragging(false);
       const file = e.dataTransfer?.files?.[0];
       if (!file) return;
+      const { importCreationFromFile } = await import('../state/exporters');
       await importCreationFromFile(file);
     };
 

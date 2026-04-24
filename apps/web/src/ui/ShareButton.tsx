@@ -1,7 +1,6 @@
 import { buildShareUrl } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
-import { roomShareUrl } from '../multiplayer/useRoomRouter';
 
 export function ShareButton() {
   const serializeCreation = useEditorStore((s) => s.serializeCreation);
@@ -11,7 +10,13 @@ export function ShareButton() {
   const onShare = async () => {
     // Room link wins when connected — collaborators should arrive in the
     // live session, not a frozen snapshot.
-    const url = roomId ? roomShareUrl(roomId) : buildShareUrl(serializeCreation());
+    let url: string;
+    if (roomId) {
+      const { roomShareUrl } = await import('../multiplayer/useRoomRouter');
+      url = roomShareUrl(roomId);
+    } else {
+      url = buildShareUrl(serializeCreation());
+    }
     const label = roomId ? 'Room link copied' : 'Snapshot link copied';
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {

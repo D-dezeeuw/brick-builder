@@ -1,6 +1,5 @@
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
-import { exportCanvasAsPng } from '../state/exporters';
 
 /**
  * DOM overlay shown while path-tracing. Samples counter is pumped into the
@@ -24,6 +23,7 @@ export function RenderOverlay() {
   const done = shown >= target;
 
   const onShot = async () => {
+    const { exportCanvasAsPng } = await import('../state/exporters');
     const ok = await exportCanvasAsPng(`${title}-rendered`);
     if (!ok) showToast('Screenshot failed', 'error');
     else showToast('Render saved', 'success');

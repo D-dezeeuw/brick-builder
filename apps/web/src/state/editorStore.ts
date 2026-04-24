@@ -215,6 +215,17 @@ export type EditorState = {
   idlePauseEnabled: boolean;
 
   // --- Multiplayer / room state ---
+  /**
+   * Gates the lazy-loaded multiplayer runtime. `true` means the
+   * MultiplayerRuntime component (Supabase client, realtime
+   * subscriptions, auth) should mount and stay mounted. Set by:
+   * (a) App.tsx on first mount when the URL has `?r=<id>`
+   * (b) Start/Join-room button handlers in RoomControl
+   * Never cleared — once multiplayer's in the tab's bundle, keeping
+   * it mounted is free and saves a second lazy round-trip if the
+   * user leaves and re-joins a room.
+   */
+  multiplayerActive: boolean;
   /** Current room id when connected; null for solo editing. */
   roomId: string | null;
   /** Connection phase for the UI (status pill, disable writes on error). */
@@ -334,6 +345,7 @@ export type EditorState = {
   setWooshSoundEnabled: (b: boolean) => void;
   setAudioMuted: (b: boolean) => void;
   setIdlePauseEnabled: (b: boolean) => void;
+  setMultiplayerActive: (b: boolean) => void;
   setRoomId: (id: string | null) => void;
   setRoomStatus: (s: EditorState['roomStatus']) => void;
   setObserveMode: (b: boolean) => void;
@@ -455,6 +467,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   wooshSoundEnabled: true,
   audioMuted: false,
   idlePauseEnabled: true,
+  multiplayerActive: false,
   roomId: null,
   roomStatus: 'idle',
   roomHasPassword: false,
@@ -647,6 +660,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setWooshSoundEnabled: (b) => set({ wooshSoundEnabled: b }),
   setAudioMuted: (b) => set({ audioMuted: b }),
   setIdlePauseEnabled: (b) => set({ idlePauseEnabled: b }),
+  setMultiplayerActive: (b) => set({ multiplayerActive: b }),
   setRoomId: (roomId) => set({ roomId }),
   setRoomStatus: (roomStatus) => set({ roomStatus }),
   setObserveMode: (b) => set({ observeMode: b }),

@@ -1,16 +1,10 @@
 import { validateCreation, type Creation } from '@brick/shared';
 import { loadCreationWithHistoryReset } from './commandStack';
 import { requestPngCapture } from './captureBus';
+import { slugify } from './slugify';
 import { useToastStore } from './toastStore';
 
-/** Slug a title for use as a filename. Falls back to "creation". */
-export function slugify(title: string): string {
-  const s = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-  return s || 'creation';
-}
+export { slugify };
 
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);

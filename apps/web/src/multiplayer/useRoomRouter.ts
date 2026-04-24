@@ -34,6 +34,17 @@ export function useRoomRouter(): void {
       void connectToRoom(initial);
     }
 
+    // Seed URL from the current roomId in case MultiplayerRuntime mounted
+    // AFTER a Start/Join button already set roomId (the subscription below
+    // only catches future changes). Without this, the first share link
+    // could miss the `?r=` param on a slow-lazy-chunk load.
+    const seedRoomId = useEditorStore.getState().roomId;
+    if (seedRoomId && !params.get(ROOM_PARAM)) {
+      const url = new URL(location.href);
+      url.searchParams.set(ROOM_PARAM, seedRoomId);
+      history.replaceState(null, '', url.toString());
+    }
+
     const unsub = useEditorStore.subscribe((state, prev) => {
       if (state.roomId === prev.roomId) return;
       const url = new URL(location.href);
