@@ -141,7 +141,16 @@ function BrickBucket({ shape, color, transparent, items }: BucketProps) {
   const quality = useEditorStore((s) => s.quality);
   const reflectivity = useEditorStore((s) => s.brickReflectivity);
   const studsVisible = useEditorStore((s) => s.studsVisible);
-  const geometry = useMemo(() => getGeometry(shape, studsVisible), [shape, studsVisible]);
+  // Transparent bricks always render studless. Studs on clear plastic
+  // refract + double-image through the body and just read as noise;
+  // every reference image the app is trying to evoke shows clear
+  // pieces as clean glass cubes. Decoupled from the global toggle so
+  // opaque bricks keep their studs when the user wants them.
+  const effectiveStuds = studsVisible && !transparent;
+  const geometry = useMemo(
+    () => getGeometry(shape, effectiveStuds),
+    [shape, effectiveStuds],
+  );
   const material = useMemo(
     () =>
       createBrickMaterial(
