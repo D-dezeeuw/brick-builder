@@ -124,7 +124,39 @@ export function HelpModal({ open, onClose }: Props) {
             </section>
           ))}
         </div>
+        <footer className="help-panel__footer">
+          <span>
+            Made by{' '}
+            <a href="https://nekomedia.nl" target="_blank" rel="noopener noreferrer">
+              Neko Media
+            </a>
+          </span>
+          <a
+            href="https://github.com/D-dezeeuw/brick-builder"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="help-panel__github"
+          >
+            <GithubIcon />
+            <span>D-dezeeuw/brick-builder</span>
+          </a>
+        </footer>
       </div>
     </div>
+  );
+}
+
+function GithubIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+      fill="currentColor"
+    >
+      <path d="M12 .5a11.5 11.5 0 0 0-3.63 22.41c.57.1.79-.25.79-.55v-1.95c-3.2.7-3.88-1.55-3.88-1.55-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.95.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.27-5.24-5.65 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a11 11 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.8 1.18 1.82 1.18 3.07 0 4.39-2.7 5.36-5.27 5.64.41.36.78 1.06.78 2.13v3.16c0 .31.21.66.79.55A11.5 11.5 0 0 0 12 .5Z" />
+    </svg>
   );
 }

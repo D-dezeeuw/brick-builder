@@ -548,6 +548,35 @@ body,
   color: var(--fg-muted);
 }
 
+/* Credit + repo footer at the bottom of the Help modal. */
+.help-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.help-panel__footer a {
+  color: var(--fg);
+  text-decoration: none;
+  transition: color 0.08s ease;
+}
+
+.help-panel__footer a:hover {
+  color: var(--accent);
+}
+
+.help-panel__github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .help-row kbd {
   display: inline-block;
   padding: 2px 8px;

@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "description": "Procedural LEGO-style 3D editor with realtime multiplayer",
+  "author": "Neko Media",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "pnpm --parallel -r dev",

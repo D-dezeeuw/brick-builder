@@ -130,6 +130,10 @@ Small, focused PRs welcome. When adding a feature:
   [`apps/web/src/multiplayer/roomWrites.ts`](apps/web/src/multiplayer/roomWrites.ts).
 - Run `pnpm typecheck && pnpm build` before pushing; CI enforces both.
 
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE). Copyright © 2026 Neko Media.
+
 ## Credits
 
 Brick dimensions sourced from [Brick Owl](https://www.brickowl.com/us/help/stud-dimensions), [bartneck.de](https://www.bartneck.de/2019/04/21/lego-brick-dimensions-and-measurements/), [Bricking Ohio](https://www.brickingohio.com/blog/lego-geometry-101), and [GrabCAD](https://grabcad.com/tutorials/lego-01-basic-dimensions-bricks-explained). Top-30 shape ranking from [Brick Architect](https://brickarchitect.com/parts/most-common). HDRI from [pmndrs/assets](https://github.com/pmndrs/assets) (CC0).
