@@ -1,7 +1,18 @@
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { getPathTraceSupport } from './state/webglCaps';
 import './styles.css';
+
+// Run the WebGL2 capability probe before React renders so its
+// temporary context is created + disposed before R3F's Canvas asks
+// for one. Doing this from a useEffect (post-mount) means R3F has
+// already taken a context slot when we ask for the probe's slot;
+// browsers with tight context limits (Safari/iOS) can evict the live
+// R3F context to satisfy the second request, which leaves the scene
+// black until reload. The cache populated here makes subsequent
+// getPathTraceSupport() calls (from EffectsSection) free.
+getPathTraceSupport();
 
 // AdminApp is the admin-route entry and drags the entire Supabase
 // client (+ RPC helpers) into whatever bundle it lives in. Static

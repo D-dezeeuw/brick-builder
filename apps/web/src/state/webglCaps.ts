@@ -25,15 +25,25 @@ function probe(): PathTraceSupport {
   if (!gl) {
     return { supported: false, reason: 'WebGL2 unavailable on this device' };
   }
-  // Three-gpu-pathtracer requires float render targets for its accumulation
-  // buffer and linear-filtered float textures for IBL sampling.
-  const colorBufferFloat = gl.getExtension('EXT_color_buffer_float');
-  const floatLinear = gl.getExtension('OES_texture_float_linear');
-  if (!colorBufferFloat || !floatLinear) {
-    return {
-      supported: false,
-      reason: 'GPU lacks float-texture support (common on older mobile GPUs)',
-    };
+  try {
+    // Three-gpu-pathtracer requires float render targets for its
+    // accumulation buffer and linear-filtered float textures for IBL.
+    const colorBufferFloat = gl.getExtension('EXT_color_buffer_float');
+    const floatLinear = gl.getExtension('OES_texture_float_linear');
+    if (!colorBufferFloat || !floatLinear) {
+      return {
+        supported: false,
+        reason: 'GPU lacks float-texture support (common on older mobile GPUs)',
+      };
+    }
+    return { supported: true };
+  } finally {
+    // Browsers cap concurrent WebGL2 contexts (Safari/iOS as low as 8).
+    // Leaving the probe's context alive could evict the live R3F Canvas
+    // context the next time anything else asks for a context — visible
+    // as the scene going black on settings-modal open. Explicitly lose
+    // it so this stays a one-time cost regardless of when probe() is
+    // first called relative to Canvas mount.
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
-  return { supported: true };
 }
