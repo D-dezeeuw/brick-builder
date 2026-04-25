@@ -15,7 +15,6 @@ export function RoomControl() {
   const status = useEditorStore((s) => s.roomStatus);
   const hasPassword = useEditorStore((s) => s.roomHasPassword);
   const showToast = useToastStore((s) => s.show);
-  const [passwordOpen, setPasswordOpen] = useState(false);
 
   if (!SUPABASE_CONFIGURED) return null;
 
@@ -41,23 +40,6 @@ export function RoomControl() {
     }
   };
 
-  const onLeave = async () => {
-    const { disconnectRoom } = await import('../multiplayer/roomSync');
-    await disconnectRoom();
-    showToast('Left room', 'info');
-  };
-
-  const onCopy = async () => {
-    if (!roomId) return;
-    const { roomShareUrl } = await import('../multiplayer/useRoomRouter');
-    try {
-      await navigator.clipboard.writeText(roomShareUrl(roomId));
-      showToast('Room link copied', 'success');
-    } catch {
-      showToast('Copy failed', 'error');
-    }
-  };
-
   if (!roomId) {
     return (
       <>
@@ -75,13 +57,110 @@ export function RoomControl() {
     );
   }
 
+  return <RoomMenu roomId={roomId} status={status} hasPassword={hasPassword} />;
+}
+
+type RoomMenuProps = {
+  roomId: string;
+  status: 'idle' | 'connecting' | 'connected' | 'error';
+  hasPassword: boolean;
+};
+
+/**
+ * In-room menu — collapses copy / password / leave behind a single
+ * chip-button popover so the top bar isn't carrying three room
+ * controls at once. The chip itself still shows status + lock
+ * state at a glance; clicking it reveals the actions.
+ */
+function RoomMenu({ roomId, status, hasPassword }: RoomMenuProps) {
+  const showToast = useToastStore((s) => s.show);
+  const [open, setOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setPwOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        setPwOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const closeAll = () => {
+    setOpen(false);
+    setPwOpen(false);
+  };
+
+  const onCopy = async () => {
+    const { roomShareUrl } = await import('../multiplayer/useRoomRouter');
+    try {
+      await navigator.clipboard.writeText(roomShareUrl(roomId));
+      showToast('Room link copied', 'success');
+    } catch {
+      showToast('Copy failed', 'error');
+    }
+    closeAll();
+  };
+
+  const onLeave = async () => {
+    closeAll();
+    const { disconnectRoom } = await import('../multiplayer/roomSync');
+    await disconnectRoom();
+    showToast('Left room', 'info');
+  };
+
+  const onSetPassword = async (newPassword: string, currentPassword: string | null) => {
+    if (newPassword.length === 0) {
+      showToast('Password cannot be empty', 'error');
+      return;
+    }
+    const { rpcSetRoomPassword } = await import('../multiplayer/roomPassword');
+    const ok = await rpcSetRoomPassword(roomId, newPassword, currentPassword);
+    if (!ok) {
+      showToast(hasPassword ? 'Wrong current password' : 'Could not set password', 'error');
+      return;
+    }
+    showToast(
+      hasPassword ? 'Password changed — others kicked' : 'Password set — others kicked',
+      'success',
+    );
+    closeAll();
+  };
+
+  const onRemovePassword = async (currentPassword: string) => {
+    const { rpcRemoveRoomPassword } = await import('../multiplayer/roomPassword');
+    const ok = await rpcRemoveRoomPassword(roomId, currentPassword);
+    if (!ok) {
+      showToast('Wrong current password', 'error');
+      return;
+    }
+    showToast('Password removed', 'success');
+    closeAll();
+  };
+
   return (
-    <>
+    <div className="room-menu" ref={ref}>
       <button
         type="button"
         className={`room-chip room-chip--${status}`}
-        onClick={onCopy}
-        title={`Room ${roomId} — click to copy link`}
+        onClick={() => setOpen((v) => !v)}
+        title={`Room ${roomId} — actions`}
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         <span className={`room-chip__dot room-chip__dot--${status}`} aria-hidden="true" />
         <span className="room-chip__id">Room {roomId}</span>
@@ -95,21 +174,39 @@ export function RoomControl() {
           </span>
         )}
       </button>
-      <RoomPasswordButton
-        roomId={roomId}
-        hasPassword={hasPassword}
-        open={passwordOpen}
-        setOpen={setPasswordOpen}
-      />
-      <button
-        type="button"
-        className="icon-btn icon-btn--text"
-        onClick={onLeave}
-        title="Leave this room and return to solo editing"
-      >
-        Leave
-      </button>
-    </>
+      {open && (
+        <div className="room-menu__panel" role="menu">
+          <button type="button" className="room-menu__item" onClick={onCopy} role="menuitem">
+            Copy link
+          </button>
+          <button
+            type="button"
+            className="room-menu__item"
+            onClick={() => setPwOpen((v) => !v)}
+            aria-expanded={pwOpen}
+            role="menuitem"
+          >
+            {hasPassword ? 'Change password' : 'Set password'}
+          </button>
+          {pwOpen && (
+            <RoomPasswordPanel
+              hasPassword={hasPassword}
+              onSet={onSetPassword}
+              onRemove={onRemovePassword}
+              onClose={() => setPwOpen(false)}
+            />
+          )}
+          <button
+            type="button"
+            className="room-menu__item room-menu__item--danger"
+            onClick={onLeave}
+            role="menuitem"
+          >
+            Leave room
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -219,85 +316,6 @@ function RoomJoinButton({ disabled }: { disabled: boolean }) {
             </button>
           </div>
         </form>
-      )}
-    </div>
-  );
-}
-
-type PasswordButtonProps = {
-  roomId: string;
-  hasPassword: boolean;
-  open: boolean;
-  setOpen: (v: boolean) => void;
-};
-
-function RoomPasswordButton({ roomId, hasPassword, open, setOpen }: PasswordButtonProps) {
-  const showToast = useToastStore((s) => s.show);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('mousedown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, setOpen]);
-
-  const onSet = async (newPassword: string, currentPassword: string | null) => {
-    if (newPassword.length === 0) {
-      showToast('Password cannot be empty', 'error');
-      return;
-    }
-    const { rpcSetRoomPassword } = await import('../multiplayer/roomPassword');
-    const ok = await rpcSetRoomPassword(roomId, newPassword, currentPassword);
-    if (!ok) {
-      showToast(hasPassword ? 'Wrong current password' : 'Could not set password', 'error');
-      return;
-    }
-    showToast(
-      hasPassword ? 'Password changed — others kicked' : 'Password set — others kicked',
-      'success',
-    );
-    setOpen(false);
-  };
-
-  const onRemove = async (currentPassword: string) => {
-    const { rpcRemoveRoomPassword } = await import('../multiplayer/roomPassword');
-    const ok = await rpcRemoveRoomPassword(roomId, currentPassword);
-    if (!ok) {
-      showToast('Wrong current password', 'error');
-      return;
-    }
-    showToast('Password removed', 'success');
-    setOpen(false);
-  };
-
-  return (
-    <div className="room-password" ref={ref}>
-      <button
-        type="button"
-        className="icon-btn icon-btn--text"
-        onClick={() => setOpen(!open)}
-        title={hasPassword ? 'Change or remove password' : 'Set a password for this room'}
-        aria-expanded={open}
-      >
-        {hasPassword ? 'Password' : 'Set password'}
-      </button>
-      {open && (
-        <RoomPasswordPanel
-          hasPassword={hasPassword}
-          onSet={onSet}
-          onRemove={onRemove}
-          onClose={() => setOpen(false)}
-        />
       )}
     </div>
   );
