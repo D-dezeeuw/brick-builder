@@ -150,7 +150,7 @@ export function EffectsSection() {
       </div>
       <Toggle
         label="Depth of field"
-        hint="Finite-aperture focus blur; focuses on the orbit target"
+        hint="Focus blur on the orbit target. Path-traced when in render mode; fast bokeh post-effect at Ultra otherwise."
         checked={dofEnabled}
         onChange={setDofEnabled}
       />

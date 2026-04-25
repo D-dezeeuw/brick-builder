@@ -111,6 +111,8 @@ export function Scene() {
   const pathtracerEarlyStopAt = useEditorStore((s) => s.pathtracerEarlyStopAt);
   const pathtracerBounces = useEditorStore((s) => s.pathtracerBounces);
   const pathtracerResolutionScale = useEditorStore((s) => s.pathtracerResolutionScale);
+  const pathtracerDofEnabled = useEditorStore((s) => s.pathtracerDofEnabled);
+  const pathtracerFStop = useEditorStore((s) => s.pathtracerFStop);
   // Convergence monitor lowers the effective cap once the image stops
   // changing — saves users from over-sampling a scene that already
   // looks final. The monitor nulls this back out when the tracer
@@ -173,7 +175,13 @@ export function Scene() {
   const envContribution = config.useEnvironment ? envIntensity : 0;
   const ambientBase = Math.max(0.15, 0.5 - 0.35 * envContribution);
 
-  const anyPostFX = aoEnabled || bloomEnabled || smaaEnabled;
+  // Raster DoF is only available at Ultra quality — the depth-prepass
+  // + bokeh blur is a meaningful added cost and Ultra users already
+  // opted into the heavier pipeline. Reuses the PT DoF toggle + f-stop
+  // store fields so the user has a single set of "DoF" controls that
+  // works in both rasterized and path-traced viewing.
+  const dofRasterEligible = quality === 'ultra' && pathtracerDofEnabled;
+  const anyPostFX = aoEnabled || bloomEnabled || smaaEnabled || dofRasterEligible;
 
   // Scene content shared between rasterized and path-traced paths. Pathtracer
   // wraps it to path-trace everything inside (lights, env map, bricks, plate).
@@ -321,7 +329,13 @@ export function Scene() {
           <SelectionOverlay />
           {anyPostFX && (
             <Suspense fallback={null}>
-              <PostFX ao={aoEnabled} bloom={bloomEnabled} smaa={smaaEnabled} />
+              <PostFX
+                ao={aoEnabled}
+                bloom={bloomEnabled}
+                smaa={smaaEnabled}
+                dof={dofRasterEligible}
+                fStop={pathtracerFStop}
+              />
             </Suspense>
           )}
           {/* Grayscale freeze when going idle. Gated on rasterized mode

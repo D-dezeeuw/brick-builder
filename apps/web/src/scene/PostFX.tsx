@@ -1,13 +1,26 @@
-import type { ReactElement } from 'react';
-import { HalfFloatType } from 'three';
-import { EffectComposer, N8AO, Bloom, SMAA } from '@react-three/postprocessing';
+import { type ReactElement } from 'react';
+import { HalfFloatType, type Vector3 } from 'three';
+import { useThree } from '@react-three/fiber';
+import { EffectComposer, N8AO, Bloom, SMAA, DepthOfField } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 
 type Props = {
   ao: boolean;
   bloom: boolean;
   smaa: boolean;
+  dof: boolean;
+  /** F-stop value from the shared store (1.4–22). Mapped to bokehScale below. */
+  fStop: number;
 };
+
+// Inverse-ish mapping from photographic f-stop to the postprocessing
+// library's bokehScale (a free multiplier on the blur radius). At f/1.4
+// we want a noticeable blur on out-of-focus bricks; at f/22 it should
+// effectively collapse to a sharp image. The constants were tuned by
+// eye against a 32-stud baseplate camera distance.
+function fStopToBokehScale(fStop: number): number {
+  return Math.max(0.2, Math.min(8, 10 / fStop));
+}
 
 /**
  * Post-processing chain assembled from individually toggleable effects.
@@ -31,7 +44,13 @@ type Props = {
  * EffectComposer's children are typed as JSX.Element (not boolean), so we
  * assemble a filtered array instead of inlining `flag && <Effect/>`.
  */
-export function PostFX({ ao, bloom, smaa }: Props) {
+export function PostFX({ ao, bloom, smaa, dof, fStop }: Props) {
+  // OrbitControls target is the focus point — same convention the PT
+  // path uses via PhysicalCamera. DoF reads `target` each frame and
+  // computes focusDistance from it, so the focus tracks whatever the
+  // user is orbiting around.
+  const controls = useThree((s) => s.controls) as { target: Vector3 } | null;
+
   const effects: ReactElement[] = [];
   if (ao) {
     effects.push(
@@ -54,6 +73,21 @@ export function PostFX({ ao, bloom, smaa }: Props) {
         intensity={0.35}
         mipmapBlur
         blendFunction={BlendFunction.ADD}
+      />,
+    );
+  }
+  if (dof && controls) {
+    effects.push(
+      <DepthOfField
+        key="dof"
+        target={controls.target}
+        // worldFocusRange in scene units — bricks within this distance
+        // of the focus point stay sharp, then blur ramps. 50mm ≈ a few
+        // stud pitches, plenty for foreground/background separation
+        // without making everything mid-distance also soft.
+        worldFocusRange={50}
+        bokehScale={fStopToBokehScale(fStop)}
+        height={480}
       />,
     );
   }
