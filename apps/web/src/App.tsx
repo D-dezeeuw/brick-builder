@@ -19,6 +19,7 @@ import { useEditorStore } from './state/editorStore';
 import { hasWebGL2 } from './state/webgl';
 import { useKeybindings } from './state/useKeybindings';
 import { usePersistence } from './state/persistence';
+import { useSettingsPersistence } from './state/settingsPersistence';
 import { warmGeometryCache } from './bricks/geometry/builders';
 
 // Deferred — loaded on first interaction with each surface to keep
@@ -39,6 +40,7 @@ const MOBILE_BREAKPOINT = 768;
 export function App() {
   useKeybindings();
   usePersistence();
+  useSettingsPersistence();
   useFirstRunHelp();
 
   const helpOpen = useHelpStore((s) => s.open);
