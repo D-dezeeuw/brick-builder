@@ -1,5 +1,4 @@
 import { useEditorStore } from '../state/editorStore';
-import { useSettingsStore } from '../state/settingsStore';
 import { getPathTraceSupport } from '../state/webglCaps';
 
 type ToggleProps = {
@@ -29,7 +28,6 @@ export function EffectsSection() {
   const ao = useEditorStore((s) => s.aoEnabled);
   const bloom = useEditorStore((s) => s.bloomEnabled);
   const smaa = useEditorStore((s) => s.smaaEnabled);
-  const renderMode = useEditorStore((s) => s.renderMode);
   const maxSamples = useEditorStore((s) => s.pathtracerMaxSamples);
   const bounces = useEditorStore((s) => s.pathtracerBounces);
   const resolutionScale = useEditorStore((s) => s.pathtracerResolutionScale);
@@ -46,7 +44,6 @@ export function EffectsSection() {
   const setAo = useEditorStore((s) => s.setAoEnabled);
   const setBloom = useEditorStore((s) => s.setBloomEnabled);
   const setSmaa = useEditorStore((s) => s.setSmaaEnabled);
-  const setRenderMode = useEditorStore((s) => s.setRenderMode);
   const setMaxSamples = useEditorStore((s) => s.setPathtracerMaxSamples);
   const setBounces = useEditorStore((s) => s.setPathtracerBounces);
   const setResolutionScale = useEditorStore((s) => s.setPathtracerResolutionScale);
@@ -79,7 +76,9 @@ export function EffectsSection() {
       />
       <Toggle label="Anti-aliasing" hint="SMAA post-filter" checked={smaa} onChange={setSmaa} />
 
-      <PathTraceButton renderMode={renderMode} setRenderMode={setRenderMode} support={support} />
+      {!support.supported && (
+        <p className="toggle-row__hint render-btn__unsupported">{support.reason}</p>
+      )}
       <div
         className={`slider-row${!support.supported ? ' slider-row--disabled' : ''}`}
         style={{ marginTop: 8 }}
@@ -288,44 +287,3 @@ export function EffectsSection() {
   );
 }
 
-function PathTraceButton({
-  renderMode,
-  setRenderMode,
-  support,
-}: {
-  renderMode: boolean;
-  setRenderMode: (b: boolean) => void;
-  support: ReturnType<typeof getPathTraceSupport>;
-}) {
-  const closeSettings = useSettingsStore((s) => s.setOpen);
-  const disabled = !support.supported && !renderMode;
-  const title = renderMode
-    ? 'Exit path-traced render mode'
-    : support.supported
-      ? 'Switch to GPU path tracer — non-interactive, converges over a few seconds'
-      : support.reason;
-  const onClick = () => {
-    const next = !renderMode;
-    setRenderMode(next);
-    // When turning render mode ON, get the settings modal out of the
-    // way so the user can see the full canvas converge. Exiting render
-    // mode from inside the modal is rare enough that keeping it open
-    // there matters less — but even then the button is the main exit
-    // affordance, so close in both directions for simplicity.
-    closeSettings(false);
-  };
-  return (
-    <>
-      <button
-        type="button"
-        className={`render-btn${renderMode ? ' render-btn--active' : ''}`}
-        onClick={onClick}
-        disabled={disabled}
-        title={title}
-      >
-        {renderMode ? 'Exit render mode' : 'Path-traced render'}
-      </button>
-      {disabled && <p className="toggle-row__hint render-btn__unsupported">{support.reason}</p>}
-    </>
-  );
-}

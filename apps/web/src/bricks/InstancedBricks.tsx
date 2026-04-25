@@ -223,9 +223,13 @@ function BrickBucket({ shape, color, transparent, items }: BucketProps) {
 
   return (
     <instancedMesh
-      // Capacity growth requires remounting the mesh — InstancedMesh count
-      // is fixed at construct time.
-      key={capacity}
+      // Capacity growth requires remounting the mesh — InstancedMesh
+      // count is fixed at construct time. We also include
+      // effectiveStuds in the key: relying on R3F's args-tuple diff
+      // alone hasn't been reliable across the studs/transparent
+      // matrix, so a hard React key change guarantees a fresh mesh
+      // when the stud-bearing geometry swaps to/from studless.
+      key={`${capacity}|${effectiveStuds ? 's' : 'n'}`}
       ref={setMesh}
       args={[geometry, material, capacity]}
       castShadow

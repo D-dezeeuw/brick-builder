@@ -3,6 +3,7 @@ import { useEditorStore } from '../state/editorStore';
 import { useHelpStore } from '../state/helpStore';
 import { useSettingsStore } from '../state/settingsStore';
 import { computeStats } from '../state/stats';
+import { getPathTraceSupport } from '../state/webglCaps';
 import { ExportMenu } from './ExportMenu';
 import { RoomControl } from './RoomControl';
 import { ShareButton } from './ShareButton';
@@ -17,8 +18,11 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
   const title = useEditorStore((s) => s.title);
   const setTitle = useEditorStore((s) => s.setTitle);
   const layerOffset = useEditorStore((s) => s.layerOffset);
+  const renderMode = useEditorStore((s) => s.renderMode);
+  const setRenderMode = useEditorStore((s) => s.setRenderMode);
   const openHelp = useHelpStore((s) => s.setOpen);
   const openSettings = useSettingsStore((s) => s.setOpen);
+  const ptSupport = getPathTraceSupport();
 
   const stats = useMemo(() => computeStats(bricks.values()), [bricks]);
 
@@ -98,6 +102,25 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
           />
         )}
         {stats.uniqueColors > 1 && <StatChip label="colors" value={stats.uniqueColors} />}
+        <button
+          type="button"
+          className={`render-toggle${renderMode ? ' render-toggle--active' : ''}`}
+          onClick={() => setRenderMode(!renderMode)}
+          disabled={!ptSupport.supported && !renderMode}
+          title={
+            renderMode
+              ? 'Exit path-traced render mode'
+              : ptSupport.supported
+                ? 'Switch to GPU path tracer — non-interactive, converges over a few seconds'
+                : ptSupport.reason
+          }
+          aria-pressed={renderMode}
+        >
+          <RenderIcon />
+          <span className="render-toggle__label">
+            {renderMode ? 'Exit render' : 'Render'}
+          </span>
+        </button>
         <div
           ref={overflowRef}
           className="top-bar-actions"
@@ -168,6 +191,30 @@ function StatChip({
     <span className="stats" title={title}>
       <span className="stats__value">{value}</span> {label}
     </span>
+  );
+}
+
+function RenderIcon() {
+  // Sparkle / aperture mark — visually distinct from the export
+  // camera icon so users don't confuse them. The four small accents
+  // hint at "ray sampling".
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
+      <circle
+        cx="12"
+        cy="12"
+        r="4.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M12 4.5v3M12 16.5v3M4.5 12h3M16.5 12h3M6.7 6.7l2.1 2.1M15.2 15.2l2.1 2.1M6.7 17.3l2.1-2.1M15.2 8.8l2.1-2.1"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

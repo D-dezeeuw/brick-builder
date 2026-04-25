@@ -47,6 +47,7 @@ export function PlacementCursor() {
   const rotation = useEditorStore((s) => s.rotation);
   const mode = useEditorStore((s) => s.mode);
   const studsVisible = useEditorStore((s) => s.studsVisible);
+  const transparentMode = useEditorStore((s) => s.transparentMode);
   const layerOffset = useEditorStore((s) => s.layerOffset);
   const placementOffset = useEditorStore((s) => s.placementOffset);
   const mirrorAxis = useEditorStore((s) => s.mirrorAxis);
@@ -436,9 +437,14 @@ export function PlacementCursor() {
     return () => window.removeEventListener('keydown', onKey);
   }, [camera]);
 
+  // Same studless-when-transparent rule as InstancedBricks so the
+  // placement ghost matches what the actual placed brick will look
+  // like — toggling clear-plastic mode shouldn't make the preview
+  // suddenly grow studs.
+  const cursorEffectiveStuds = studsVisible && !transparentMode;
   const geometry = useMemo(
-    () => getGeometry(selectedShape, studsVisible),
-    [selectedShape, studsVisible],
+    () => getGeometry(selectedShape, cursorEffectiveStuds),
+    [selectedShape, cursorEffectiveStuds],
   );
   // Select/Hand mode shows no cursor ghost — the mode is a one-shot
   // click-to-pickup and flips into build immediately.
@@ -456,7 +462,7 @@ export function PlacementCursor() {
     const bodyW = fp.w * STUD_PITCH_MM;
     const bodyD = fp.d * STUD_PITCH_MM;
     const { x: ox, z: oz } = rotationOffsetMM(target.rotation, bodyW, bodyD);
-    const targetGeom = getGeometry(target.shape, studsVisible);
+    const targetGeom = getGeometry(target.shape, studsVisible && target.transparent !== true);
     return (
       <group
         position={[
