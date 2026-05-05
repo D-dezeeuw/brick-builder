@@ -1,0 +1,13 @@
+#!/bin/sh
+# Local mirror of the CI gate: prettier + tsc must both pass before
+# anything reaches origin. Bypass with `git push --no-verify` if you
+# really need to (CI will still catch it).
+set -e
+
+echo '[pre-push] format:check'
+pnpm -s format:check
+
+echo '[pre-push] typecheck'
+pnpm -s typecheck
+
+echo '[pre-push] ok'
