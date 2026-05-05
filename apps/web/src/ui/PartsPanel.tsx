@@ -94,7 +94,9 @@ export function PartsPanel() {
             <button
               type="button"
               className="mode-btn"
-              onClick={() => downloadText(inventoryToBricklinkXml(rows), `${filename}.xml`, 'application/xml')}
+              onClick={() =>
+                downloadText(inventoryToBricklinkXml(rows), `${filename}.xml`, 'application/xml')
+              }
               title="Download a BrickLink mass-upload XML (bricklink.com/v2/wanted/upload.page)"
             >
               BrickLink XML
@@ -137,11 +139,24 @@ function PartRow({ row }: { row: InventoryRow }) {
       <span className="parts-row__body">
         <span className="parts-row__name">{part.name}</span>
         <span className="parts-row__meta">
-          <span>{blColor ? blColor.name : `${transparent ? 'trans ' : ''}${color} (no BL match)`}</span>
+          <span>
+            {blColor ? blColor.name : `${transparent ? 'trans ' : ''}${color} (no BL match)`}
+          </span>
           <span className="parts-row__dot">·</span>
           <span className="parts-row__id">#{part.blId}</span>
-          {part.note && <span className="parts-row__warn" title={part.note}>⚠</span>}
-          {!blColor && <span className="parts-row__warn" title="No BrickLink color match — excluded from XML export.">⚠</span>}
+          {part.note && (
+            <span className="parts-row__warn" title={part.note}>
+              ⚠
+            </span>
+          )}
+          {!blColor && (
+            <span
+              className="parts-row__warn"
+              title="No BrickLink color match — excluded from XML export."
+            >
+              ⚠
+            </span>
+          )}
         </span>
       </span>
       {href ? (

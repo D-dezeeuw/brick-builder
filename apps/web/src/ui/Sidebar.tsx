@@ -15,24 +15,14 @@ export function Sidebar() {
   return (
     <div className="sidebar-content">
       <div className="sidebar-tabs" role="tablist" aria-label="Sidebar section">
-        <SidebarTabButton
-          label="Build"
-          value="build"
-          active={tab === 'build'}
-          onSelect={setTab}
-        />
+        <SidebarTabButton label="Build" value="build" active={tab === 'build'} onSelect={setTab} />
         <SidebarTabButton
           label="Organise"
           value="organise"
           active={tab === 'organise'}
           onSelect={setTab}
         />
-        <SidebarTabButton
-          label="Parts"
-          value="parts"
-          active={tab === 'parts'}
-          onSelect={setTab}
-        />
+        <SidebarTabButton label="Parts" value="parts" active={tab === 'parts'} onSelect={setTab} />
       </div>
       {tab === 'build' ? <BuildTab /> : tab === 'organise' ? <OrganisePanel /> : <PartsPanel />}
     </div>

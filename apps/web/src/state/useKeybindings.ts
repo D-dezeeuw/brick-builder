@@ -1,11 +1,6 @@
 import { useEffect } from 'react';
 import { useEditorStore } from './editorStore';
-import {
-  cancelCarry,
-  commandStack,
-  deleteSelection,
-  duplicateSelection,
-} from './commandStack';
+import { cancelCarry, commandStack, deleteSelection, duplicateSelection } from './commandStack';
 import { useHelpStore } from './helpStore';
 
 /** Global keyboard shortcuts. Ignores events from form fields. */

@@ -21,8 +21,7 @@ function triggerDownload(blob: Blob, filename: string): void {
 
 function isMobile(): boolean {
   return (
-    typeof navigator !== 'undefined' &&
-    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
   );
 }
 

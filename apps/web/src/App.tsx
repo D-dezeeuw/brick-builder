@@ -27,9 +27,7 @@ import { warmGeometryCache } from './bricks/geometry/builders';
 const SettingsModal = lazy(() =>
   import('./ui/SettingsModal').then((m) => ({ default: m.SettingsModal })),
 );
-const ChatPanel = lazy(() =>
-  import('./ui/ChatPanel').then((m) => ({ default: m.ChatPanel })),
-);
+const ChatPanel = lazy(() => import('./ui/ChatPanel').then((m) => ({ default: m.ChatPanel })));
 // The whole multiplayer subsystem (Supabase client + realtime + auth)
 // loads only when the user actually intends to collaborate — either
 // the URL carries ?r=<id> or they click Start/Join room.

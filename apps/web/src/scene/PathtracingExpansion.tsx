@@ -95,7 +95,10 @@ const LOD_DISTANCE_MM = 800;
 export function PathtracingExpansion() {
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
-  const controls = useThree((s) => s.controls) as { addEventListener?: EventTarget['addEventListener']; removeEventListener?: EventTarget['removeEventListener'] } | null;
+  const controls = useThree((s) => s.controls) as {
+    addEventListener?: EventTarget['addEventListener'];
+    removeEventListener?: EventTarget['removeEventListener'];
+  } | null;
   const { pathtracer } = usePathtracer();
 
   // Track the current camera via a ref so the expansion effect
@@ -233,11 +236,7 @@ export function PathtracingExpansion() {
           // vertical error inside a chunk is far below LOD_DISTANCE_MM.
           chunkCentres.set(
             chunkKey,
-            new Vector3(
-              (cx + 0.5) * CHUNK_SIZE_MM,
-              0,
-              (cz + 0.5) * CHUNK_SIZE_MM,
-            ),
+            new Vector3((cx + 0.5) * CHUNK_SIZE_MM, 0, (cz + 0.5) * CHUNK_SIZE_MM),
           );
         }
         mats.push(m.clone());

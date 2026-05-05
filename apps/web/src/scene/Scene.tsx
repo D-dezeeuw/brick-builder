@@ -43,10 +43,7 @@ import { IS_MOBILE } from './ptPlatform';
 // downside.
 const PT_TILES: [number, number] = IS_MOBILE ? [5, 5] : [4, 4];
 
-const TONE_MAPPING_ENUM: Record<
-  'aces' | 'agx' | 'neutral' | 'linear',
-  ToneMapping
-> = {
+const TONE_MAPPING_ENUM: Record<'aces' | 'agx' | 'neutral' | 'linear', ToneMapping> = {
   aces: ACESFilmicToneMapping,
   agx: AgXToneMapping,
   neutral: NeutralToneMapping,

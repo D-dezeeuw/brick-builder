@@ -117,9 +117,7 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: Props) {
           aria-pressed={renderMode}
         >
           <RenderIcon />
-          <span className="render-toggle__label">
-            {renderMode ? 'Exit render' : 'Render'}
-          </span>
+          <span className="render-toggle__label">{renderMode ? 'Exit render' : 'Render'}</span>
         </button>
         <div
           ref={overflowRef}
@@ -200,14 +198,7 @@ function RenderIcon() {
   // hint at "ray sampling".
   return (
     <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
-      <circle
-        cx="12"
-        cy="12"
-        r="4.4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
+      <circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
       <path
         d="M12 4.5v3M12 16.5v3M4.5 12h3M16.5 12h3M6.7 6.7l2.1 2.1M15.2 15.2l2.1 2.1M6.7 17.3l2.1-2.1M15.2 8.8l2.1-2.1"
         stroke="currentColor"

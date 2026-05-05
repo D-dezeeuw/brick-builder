@@ -21,9 +21,7 @@ export function buildRoundGeometry(def: RoundDef, showStuds = true): BufferGeome
   const cx = bodyRadius;
   const cz = bodyRadius;
 
-  const parts: BufferGeometry[] = [
-    buildRoundBody(bodyRadius, bodyH, diameter, cx, cz, showStuds),
-  ];
+  const parts: BufferGeometry[] = [buildRoundBody(bodyRadius, bodyH, diameter, cx, cz, showStuds)];
   const effectiveTop = showStuds ? top : 'smooth';
   parts.push(...buildRoundTop(cx, cz, bodyH, diameter, effectiveTop));
 

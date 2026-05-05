@@ -216,9 +216,7 @@ export function EffectsSection() {
           id="denoise-algo"
           className="settings-select"
           value={denoiseAlgorithm}
-          onChange={(e) =>
-            setDenoiseAlgorithm(e.currentTarget.value as typeof denoiseAlgorithm)
-          }
+          onChange={(e) => setDenoiseAlgorithm(e.currentTarget.value as typeof denoiseAlgorithm)}
           disabled={!denoise}
           title="Which filter runs after the path tracer converges"
         >
@@ -286,4 +284,3 @@ export function EffectsSection() {
     </div>
   );
 }
-

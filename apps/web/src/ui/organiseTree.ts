@@ -54,8 +54,7 @@ export function buildTree(bricks: Map<string, Brick>, layers: Layer[]): TreeLaye
 
   for (const b of bricks.values()) {
     const transparent = b.transparent === true;
-    const lid =
-      b.layerId && layerIndex.has(b.layerId) ? b.layerId : DEFAULT_LAYER_ID;
+    const lid = b.layerId && layerIndex.has(b.layerId) ? b.layerId : DEFAULT_LAYER_ID;
     let groups = layerIndex.get(lid);
     if (!groups) {
       // Shouldn't happen: default is always in layerIndex. Safety net.
@@ -136,7 +135,11 @@ export function prettyColor(color: BrickColor): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-export function groupDisplayName(shape: BrickShape, color: BrickColor, transparent: boolean): string {
+export function groupDisplayName(
+  shape: BrickShape,
+  color: BrickColor,
+  transparent: boolean,
+): string {
   const prefix = transparent ? 'Clear ' : '';
   return `${prefix}${prettyColor(color)} ${shapeDisplayName(shape)}`;
 }

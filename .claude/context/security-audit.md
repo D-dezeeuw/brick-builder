@@ -2,6 +2,7 @@ Here is the security audit:
 
 Security Audit: Brick Builder
 CRITICAL
+
 1. Migration 001 leaves RLS wide-open for anon role
 
 supabase/migrations/001_rooms_and_bricks.sql:75-87:
@@ -18,8 +19,7 @@ Anyone can read/write all rooms and bricks without authentication. If migration 
 
 roomSync.ts:108: Rooms without passwords have no membership gate. Anyone who guesses or obtains a room ID can read, modify, and delete all bricks. The newRoomId() function generates 8 characters from a 29-character alphabet (~47 bits of entropy), which is "unguessable" but not cryptographically random — and for unprotected rooms, it's the sole security boundary.
 
-HIGH
-4. No rate limiting on password attempts
+HIGH 4. No rate limiting on password attempts
 
 roomPassword.ts and 002_room_passwords.sql:218-259: The join_room RPC accepts unlimited password attempts. No account lockout, no throttling. An attacker can brute-force password-protected rooms. The 8-character room ID (~47 bits) plus an unbolted password creates a double weak point.
 
@@ -43,8 +43,7 @@ roomWrites.ts:51-121: All writes use void client.from(...).then(...). Failed wri
 
 roomSync.ts:154-175: Inbound realtime payloads are validated against the Brick schema (rowToBrickSafe) but the validation does not check room_id on the payload. A malicious peer that bypasses the client and writes directly to the DB could inject bricks into another room if RLS fails.
 
-MEDIUM
-10. author_name field in chat is user-controlled with no sanitization
+MEDIUM 10. author_name field in chat is user-controlled with no sanitization
 
 005_chat.sql:14: author_name defaults to 'anon' but the insert policy allows any 1-64 character string from the client. No sanitization or escaping is applied before rendering. XSS risk if the author name is rendered as HTML in the chat UI.
 
@@ -64,8 +63,7 @@ Rooms and messages accumulate indefinitely. No cleanup of abandoned rooms, no TT
 
 editorStore.ts:36-42: Brick IDs are 10 base36 characters from crypto.getRandomValues (~60 bits). The birthday paradox means collision probability is negligible at 10k bricks per room, but across all rooms, the risk grows. No server-side ID generation means a race condition between two clients placing bricks at the same moment could produce duplicates.
 
-LOW
-15. LocalStorage autosave bypasses validation on read
+LOW 15. LocalStorage autosave bypasses validation on read
 
 persistence.ts:30-31: localStorage.getItem(STORAGE_KEY) is parsed and validated, which is good. However, if the stored JSON is corrupted mid-write (e.g., Safari private mode quota error), the partially-written data could be read on the next load. The try/catch handles this but silently discards the data.
 

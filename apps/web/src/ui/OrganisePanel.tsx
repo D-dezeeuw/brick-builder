@@ -2,10 +2,7 @@ import { useMemo, useState } from 'react';
 import { BRICK_COLOR_HEX, type Brick, type Layer, type SavedView } from '@brick/shared';
 import { useEditorStore } from '../state/editorStore';
 import { useToastStore } from '../state/toastStore';
-import {
-  requestApplyView,
-  requestCaptureCurrentView,
-} from '../state/cameraViewBus';
+import { requestApplyView, requestCaptureCurrentView } from '../state/cameraViewBus';
 import {
   buildTree,
   groupDisplayName,
@@ -88,9 +85,7 @@ function SelectionSection() {
           </select>
         </label>
       </div>
-      <p className="organise-hint">
-        Shift-click in Hand mode to add/remove. Esc clears.
-      </p>
+      <p className="organise-hint">Shift-click in Hand mode to add/remove. Esc clears.</p>
     </section>
   );
 }
@@ -150,9 +145,8 @@ function LayersSection() {
         ))}
       </div>
       <p className="organise-hint">
-        New bricks drop into the active layer. Hide a layer to work around it;
-        lock one to freeze it from edits. Expand a layer to select individual
-        pieces from the tree.
+        New bricks drop into the active layer. Hide a layer to work around it; lock one to freeze it
+        from edits. Expand a layer to select individual pieces from the tree.
       </p>
     </section>
   );
@@ -271,7 +265,10 @@ function LayerRow({
         title={active ? 'Active — new bricks land here' : 'Make this the active layer'}
         aria-pressed={active}
       >
-        <span className={`organise-row__dot${active ? ' organise-row__dot--on' : ''}`} aria-hidden="true" />
+        <span
+          className={`organise-row__dot${active ? ' organise-row__dot--on' : ''}`}
+          aria-hidden="true"
+        />
       </button>
       <EditableName
         value={layer.name}
@@ -293,7 +290,11 @@ function LayerRow({
         className="organise-row__delete"
         onClick={() => !isDefault && deleteLayer(layer.id)}
         disabled={isDefault}
-        title={isDefault ? 'The default layer cannot be deleted' : 'Delete layer (bricks move to Default)'}
+        title={
+          isDefault
+            ? 'The default layer cannot be deleted'
+            : 'Delete layer (bricks move to Default)'
+        }
         aria-label="Delete layer"
       >
         ×
@@ -355,9 +356,7 @@ function GroupNode({
         <button
           type="button"
           className="organise-row__group-body"
-          onClick={() =>
-            toggleGroupSelection(layerId, group.shape, group.color, group.transparent)
-          }
+          onClick={() => toggleGroupSelection(layerId, group.shape, group.color, group.transparent)}
           title={
             allSelected
               ? `Deselect all ${group.bricks.length} ${name}`
@@ -437,8 +436,8 @@ function ViewsSection() {
       </header>
       {views.length === 0 ? (
         <p className="organise-hint">
-          Save the current camera angle so you can return to it, or compare a
-          before/after view of your build.
+          Save the current camera angle so you can return to it, or compare a before/after view of
+          your build.
         </p>
       ) : (
         <div className="organise-list">
@@ -587,7 +586,12 @@ function UnlockIcon() {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
       <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M8 11V7a4 4 0 0 1 7.5-1.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path
+        d="M8 11V7a4 4 0 0 1 7.5-1.8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -604,7 +608,13 @@ function ChevronIcon({ open }: { open: boolean }) {
       aria-hidden="true"
       className={`organise-chevron__svg${open ? ' organise-chevron__svg--open' : ''}`}
     >
-      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M9 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

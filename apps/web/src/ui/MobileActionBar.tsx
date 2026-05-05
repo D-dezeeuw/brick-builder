@@ -85,7 +85,13 @@ function RotateIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M4 4v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 4v6h6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -94,7 +100,13 @@ function ChevronIcon({ direction }: { direction: 'up' | 'down' }) {
   const d = direction === 'up' ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6';
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-      <path d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={d}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -116,7 +128,13 @@ function EyedropperIcon() {
 function UndoIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-      <path d="M4 10l4-4M4 10l4 4M4 10h10a6 6 0 0 1 0 12h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 10l4-4M4 10l4 4M4 10h10a6 6 0 0 1 0 12h-2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

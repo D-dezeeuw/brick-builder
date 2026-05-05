@@ -147,10 +147,7 @@ function BrickBucket({ shape, color, transparent, items }: BucketProps) {
   // pieces as clean glass cubes. Decoupled from the global toggle so
   // opaque bricks keep their studs when the user wants them.
   const effectiveStuds = studsVisible && !transparent;
-  const geometry = useMemo(
-    () => getGeometry(shape, effectiveStuds),
-    [shape, effectiveStuds],
-  );
+  const geometry = useMemo(() => getGeometry(shape, effectiveStuds), [shape, effectiveStuds]);
   const material = useMemo(
     () =>
       createBrickMaterial(

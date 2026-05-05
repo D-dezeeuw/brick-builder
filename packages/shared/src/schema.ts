@@ -76,7 +76,11 @@ export function isBrick(v: unknown): v is Brick {
   if (b.transparent !== undefined && typeof b.transparent !== 'boolean') return false;
   // `layerId` is optional — if present it must be a bounded string.
   if (b.layerId !== undefined) {
-    if (typeof b.layerId !== 'string' || b.layerId.length === 0 || b.layerId.length > MAX_ID_LENGTH) {
+    if (
+      typeof b.layerId !== 'string' ||
+      b.layerId.length === 0 ||
+      b.layerId.length > MAX_ID_LENGTH
+    ) {
       return false;
     }
   }
@@ -202,10 +206,7 @@ export function validateCreation(raw: unknown): Creation | null {
  * bricks to the first remaining layer). Used when loading creations so a
  * hand-edited JSON can't leave orphaned layerIds hanging on bricks.
  */
-export function reconcileBrickLayers(
-  bricks: Brick[],
-  layers: Layer[] | undefined,
-): Brick[] {
+export function reconcileBrickLayers(bricks: Brick[], layers: Layer[] | undefined): Brick[] {
   if (!layers || layers.length === 0) return bricks;
   const known = new Set(layers.map((l) => l.id));
   const fallback = layers[0]?.id ?? DEFAULT_LAYER_ID;

@@ -18,7 +18,11 @@ export function SelectionActionBar() {
   if (count === 0) return null;
 
   return (
-    <div className="selection-bar" role="toolbar" aria-label={`Selection actions, ${count} brick${count === 1 ? '' : 's'} selected`}>
+    <div
+      className="selection-bar"
+      role="toolbar"
+      aria-label={`Selection actions, ${count} brick${count === 1 ? '' : 's'} selected`}
+    >
       <span className="selection-bar__count">
         <strong>{count}</strong> selected
       </span>

@@ -54,9 +54,7 @@ export function AdminPanel({
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q || !rooms) return rooms ?? [];
-    return rooms.filter(
-      (r) => r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q),
-    );
+    return rooms.filter((r) => r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
   }, [rooms, filter]);
 
   const totalBricks = useMemo(() => {
@@ -104,7 +102,11 @@ export function AdminPanel({
           <a className="admin-btn admin-btn--ghost" href={adminRootUrl()}>
             Back to app
           </a>
-          <button type="button" className="admin-btn admin-btn--ghost" onClick={() => void onLogout()}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--ghost"
+            onClick={() => void onLogout()}
+          >
             Sign out
           </button>
         </div>
@@ -197,15 +199,23 @@ function RoomCard({
       </div>
       <div className="admin-room__body">
         <div className="admin-room__title-row">
-          <h2 className="admin-room__title" title={room.title}>{room.title}</h2>
+          <h2 className="admin-room__title" title={room.title}>
+            {room.title}
+          </h2>
           {room.hasPassword && (
-            <span className="admin-pill" title="This room has a password set">🔒</span>
+            <span className="admin-pill" title="This room has a password set">
+              🔒
+            </span>
           )}
         </div>
         <div className="admin-room__meta">
-          <span className="admin-room__id" title="Room id">{room.id}</span>
+          <span className="admin-room__id" title="Room id">
+            {room.id}
+          </span>
           <span>·</span>
-          <span>{room.brickCount.toLocaleString()} brick{room.brickCount === 1 ? '' : 's'}</span>
+          <span>
+            {room.brickCount.toLocaleString()} brick{room.brickCount === 1 ? '' : 's'}
+          </span>
           <span>·</span>
           <span title={`Created ${new Date(room.createdAt).toLocaleString()}`}>
             updated {formatRelative(room.updatedAt)}
@@ -258,7 +268,12 @@ function ConfirmDeleteModal({
 }) {
   return (
     <div className="admin-modal-backdrop" onClick={onCancel}>
-      <div className="admin-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div
+        className="admin-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <h2 className="admin-modal__title">Delete room?</h2>
         <p className="admin-modal__body">
           This removes <strong>{title}</strong> <span className="admin-muted">({roomId})</span> and
@@ -288,7 +303,7 @@ function deriveThumbColor(id: string): string {
   for (let i = 0; i < id.length; i++) {
     h = Math.imul(h ^ id.charCodeAt(i), 16777619);
   }
-  const hue = ((h >>> 0) % 360);
+  const hue = (h >>> 0) % 360;
   return `hsl(${hue}, 55%, 42%)`;
 }
 

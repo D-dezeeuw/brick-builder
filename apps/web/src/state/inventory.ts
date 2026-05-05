@@ -43,7 +43,10 @@ export type InventoryRow = {
 
 /** Build inventory rows from a `bricks` Map, sorted for predictable display. */
 export function buildInventory(bricks: Map<string, Brick>): InventoryRow[] {
-  const counts = new Map<string, { shape: BrickShape; color: BrickColor; transparent: boolean; qty: number }>();
+  const counts = new Map<
+    string,
+    { shape: BrickShape; color: BrickColor; transparent: boolean; qty: number }
+  >();
   for (const b of bricks.values()) {
     const transparent = b.transparent === true;
     const key = `${b.shape}|${b.color}|${transparent ? 't' : 'o'}`;
@@ -55,9 +58,7 @@ export function buildInventory(bricks: Map<string, Brick>): InventoryRow[] {
   const rows: InventoryRow[] = [];
   for (const [key, v] of counts) {
     const part = SHAPE_TO_PART[v.shape];
-    const blColor = v.transparent
-      ? (BL_COLOR_ID_TRANS[v.color] ?? null)
-      : BL_COLOR_ID[v.color];
+    const blColor = v.transparent ? (BL_COLOR_ID_TRANS[v.color] ?? null) : BL_COLOR_ID[v.color];
     rows.push({
       key,
       shape: v.shape,

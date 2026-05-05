@@ -629,14 +629,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setAoEnabled: (b) => set({ aoEnabled: b }),
   setBloomEnabled: (b) => set({ bloomEnabled: b }),
   setSmaaEnabled: (b) => set({ smaaEnabled: b }),
-  setRenderMode: (b) =>
-    set({ renderMode: b, pathtracerSamples: 0, pathtracerEarlyStopAt: null }),
+  setRenderMode: (b) => set({ renderMode: b, pathtracerSamples: 0, pathtracerEarlyStopAt: null }),
   setPathtracerSamples: (n) => set({ pathtracerSamples: n }),
   setPathtracerEarlyStopAt: (n) => set({ pathtracerEarlyStopAt: n }),
   setPathtracerMaxSamples: (n) =>
     set({ pathtracerMaxSamples: Math.max(1, Math.min(512, Math.round(n))) }),
-  setPathtracerBounces: (n) =>
-    set({ pathtracerBounces: Math.max(1, Math.min(8, Math.round(n))) }),
+  setPathtracerBounces: (n) => set({ pathtracerBounces: Math.max(1, Math.min(8, Math.round(n))) }),
   setPathtracerResolutionScale: (n) =>
     set({ pathtracerResolutionScale: Math.max(0.25, Math.min(1.0, n)) }),
   setPathtracerDofEnabled: (b) => set({ pathtracerDofEnabled: b }),
@@ -768,16 +766,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return { selectedIds: next };
     });
   },
-  clearSelection: () =>
-    set((s) => (s.selectedIds.size === 0 ? s : { selectedIds: new Set() })),
+  clearSelection: () => set((s) => (s.selectedIds.size === 0 ? s : { selectedIds: new Set() })),
   selectAllOnLayer: (layerId) => {
     set((s) => {
       const next = new Set(s.selectedIds);
       // A brick with no layerId belongs to the default layer for
       // organisational purposes. Mirror that here so "select all on
       // Default" works for legacy bricks.
-      const isOnLayer = (b: Brick) =>
-        (b.layerId ?? DEFAULT_LAYER_ID) === layerId;
+      const isOnLayer = (b: Brick) => (b.layerId ?? DEFAULT_LAYER_ID) === layerId;
       for (const b of s.bricks.values()) if (isOnLayer(b)) next.add(b.id);
       return { selectedIds: next };
     });
@@ -843,9 +839,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // it. Keeps the serialised form small + back-compat-friendly.
     const nonDefaultLayers = layers.filter((l) => l.id !== DEFAULT_LAYER_ID);
     const defaultMutated =
-      (layers[0]?.name !== DEFAULT_LAYER.name ||
-        layers[0]?.visible !== DEFAULT_LAYER.visible ||
-        layers[0]?.locked !== DEFAULT_LAYER.locked);
+      layers[0]?.name !== DEFAULT_LAYER.name ||
+      layers[0]?.visible !== DEFAULT_LAYER.visible ||
+      layers[0]?.locked !== DEFAULT_LAYER.locked;
     if (nonDefaultLayers.length > 0 || defaultMutated) out.layers = layers;
     if (views.length > 0) out.views = views;
     return out;
@@ -856,9 +852,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const nextIndex = new Map<string, string>();
     // Default to the always-present layer when a creation predates layers.
     const layers: Layer[] =
-      creation.layers && creation.layers.length > 0
-        ? creation.layers
-        : [DEFAULT_LAYER];
+      creation.layers && creation.layers.length > 0 ? creation.layers : [DEFAULT_LAYER];
     // Ensure the default layer is always present, so fallback reassignment
     // on delete always has a home. (If a user hand-edits a JSON that
     // omits the default, we synthesize it at the front.)

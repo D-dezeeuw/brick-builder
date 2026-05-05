@@ -21,9 +21,4 @@ export const BASEPLATE_COLOR_LABEL: Record<BaseplateColor, string> = {
   brown: 'Mud',
 };
 
-export const BASEPLATE_COLOR_ORDER: readonly BaseplateColor[] = [
-  'grey',
-  'blue',
-  'green',
-  'brown',
-];
+export const BASEPLATE_COLOR_ORDER: readonly BaseplateColor[] = ['grey', 'blue', 'green', 'brown'];

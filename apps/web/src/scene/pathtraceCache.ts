@@ -46,10 +46,7 @@ function quant(n: number, decimals: number): number {
  * that subpixel jitter from OrbitControls damping still hits the
  * cache while a real orbit misses cleanly.
  */
-export function computeCacheKey(
-  camera: PerspectiveCamera,
-  resolutionScale: number,
-): string {
+export function computeCacheKey(camera: PerspectiveCamera, resolutionScale: number): string {
   const p = camera.position;
   const q = camera.quaternion;
   return (
@@ -141,11 +138,7 @@ blitScene.add(blitMesh);
 
 /** Copy `src` into `dst` via a fullscreen quad pass. Restores the
  * renderer's previous render target afterwards. */
-export function blitTextureToTarget(
-  gl: WebGLRenderer,
-  src: Texture,
-  dst: WebGLRenderTarget,
-): void {
+export function blitTextureToTarget(gl: WebGLRenderer, src: Texture, dst: WebGLRenderTarget): void {
   blitMaterial.uniforms.tMap.value = src;
   const prev = gl.getRenderTarget();
   gl.setRenderTarget(dst);

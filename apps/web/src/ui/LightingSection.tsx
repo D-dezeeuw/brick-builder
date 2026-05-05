@@ -3,10 +3,26 @@ import { QUALITY_CONFIGS } from '../state/quality';
 import { warmthToHex } from '../scene/lightColor';
 
 const TONE_MAPPING_OPTIONS: { value: EditorState['toneMapping']; label: string; hint: string }[] = [
-  { value: 'aces', label: 'ACES Filmic', hint: 'Cinematic, saturated; three\u2019s long-standing default.' },
-  { value: 'agx', label: 'AgX', hint: 'Blender 4.x default; neutral hues, gentler roll-off than ACES.' },
-  { value: 'neutral', label: 'Khronos Neutral', hint: 'glTF-spec curve; minimal colour shift on bright tones.' },
-  { value: 'linear', label: 'Linear', hint: 'No curve. Raw HDR clipped at 1 — useful for debugging.' },
+  {
+    value: 'aces',
+    label: 'ACES Filmic',
+    hint: 'Cinematic, saturated; three\u2019s long-standing default.',
+  },
+  {
+    value: 'agx',
+    label: 'AgX',
+    hint: 'Blender 4.x default; neutral hues, gentler roll-off than ACES.',
+  },
+  {
+    value: 'neutral',
+    label: 'Khronos Neutral',
+    hint: 'glTF-spec curve; minimal colour shift on bright tones.',
+  },
+  {
+    value: 'linear',
+    label: 'Linear',
+    hint: 'No curve. Raw HDR clipped at 1 — useful for debugging.',
+  },
 ];
 
 export function LightingSection() {
@@ -129,7 +145,9 @@ export function LightingSection() {
         />
         <span className="toggle-row__label">
           <span>Show HDRI background</span>
-          <span className="toggle-row__hint">Replaces the flat backdrop with the studio skybox.</span>
+          <span className="toggle-row__hint">
+            Replaces the flat backdrop with the studio skybox.
+          </span>
         </span>
       </label>
 

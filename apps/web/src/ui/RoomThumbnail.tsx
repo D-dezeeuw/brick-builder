@@ -29,9 +29,7 @@ export function RoomThumbnail({
   brickCount: number;
   fallbackColor: string;
 }) {
-  const [dataUrl, setDataUrl] = useState<string | null>(() =>
-    loadCachedThumb(roomId, updatedAt),
-  );
+  const [dataUrl, setDataUrl] = useState<string | null>(() => loadCachedThumb(roomId, updatedAt));
   const [status, setStatus] = useState<'idle' | 'loading' | 'empty' | 'error'>(() => {
     if (loadCachedThumb(roomId, updatedAt)) return 'idle';
     if (brickCount === 0) return 'empty';
@@ -69,16 +67,11 @@ export function RoomThumbnail({
 
   // Placeholder swatch for empty rooms + while rendering.
   return (
-    <div
-      className="admin-room__thumb-swatch"
-      style={{ background: fallbackColor }}
-    >
+    <div className="admin-room__thumb-swatch" style={{ background: fallbackColor }}>
       {status === 'loading' ? (
         <span className="admin-room__thumb-count">…</span>
       ) : (
-        <span className="admin-room__thumb-count">
-          {brickCount.toLocaleString()}
-        </span>
+        <span className="admin-room__thumb-count">{brickCount.toLocaleString()}</span>
       )}
     </div>
   );
